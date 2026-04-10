@@ -1,0 +1,117 @@
+name: RocksDb.Net.Runtimes
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  build-rocksdb:
+    strategy:
+      fail-fast: false
+      #max-parallel: 1
+      matrix:
+        #platform: [linux-x64, linux-arm64, windows-x64, windows-arm64, macos-x64, macos-arm64]
+        platform: [linux-x64, windows-x64, macos-x64]
+        include:
+          - platform: linux-x64
+            os: ubuntu-latest
+            triplet: x64-linux-dynamic
+            lib_file: lib/librocksdb.so
+            runtime_arch: linux-x64
+
+          # - platform: linux-arm64
+          #   os: ubuntu-24.04-arm
+          #   triplet: arm64-linux-dynamic
+          #   lib_file: lib/librocksdb.so
+          #   runtime_arch: linux-arm64
+
+          - platform: windows-x64
+            os: windows-latest
+            triplet: x64-windows
+            lib_file: bin/librocksdb.dll
+            runtime_arch: win-x64
+
+          # - platform: windows-arm64
+          #   os: windows-11-arm
+          #   triplet: arm64-windows
+          #   lib_file: bin/librocksdb.dll
+          #   runtime_arch: win-arm64
+
+          - platform: macos-x64
+            os: macos-latest
+            triplet: x64-osx-dynamic
+            lib_file: lib/librocksdb.dylib
+            runtime_arch: osx-x64
+
+          # - platform: macos-arm64
+          #   os: macos-latest
+          #   triplet: arm64-osx-dynamic
+          #   lib_file: lib/librocksdb.dylib
+          #   runtime_arch: osx-arm64
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: "81e3c888ef717a026eb57bb2f3cb0dbd30246271"
+
+      - name: Build RocksDb
+        shell: bash
+        run: |
+          vcpkg install rocksdb:${{ matrix.triplet }}
+
+      - name: Copy to runtimes
+        shell: bash
+        run: |
+          mkdir -p runtimes/${{ matrix.runtime_arch }}/native
+          cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_file }} runtimes/${{ matrix.runtime_arch }}/native/
+
+      - name: Upload native library artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtimes-${{ matrix.platform }}
+          path: runtimes
+
+  build-nupkg:
+    needs: [build-rocksdb]
+    runs-on: ubuntu-latest
+    if: always() && needs.build-rocksdb.result == 'success'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install .NET SDKs
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Download all native library artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: runtimes-*
+          path: runtimes
+          merge-multiple: true
+
+      - name: Pack NuGet package
+        shell: bash
+        run: |
+          ls -lR runtimes
+          dotnet pack -c Release -o nupkgs
+
+      - name: Upload NuGet package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuget-package
+          path: nupkgs/*.nupkg
+
+      # Publish to NuGet.org only on release events
+      - name: Publish to NuGet.org
+        if: github.event_name == 'release'
+        run: dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

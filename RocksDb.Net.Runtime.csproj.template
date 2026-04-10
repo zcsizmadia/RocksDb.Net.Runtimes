@@ -1,0 +1,43 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Version>0.0.1</Version>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Zoltan Csizmadia</Authors>
+    <Owners>Zoltan Csizmadia</Owners>
+    <PackageId>RocksDb.Net.Runtime.$(NativeArch)</PackageId>
+    <PackageVersion>$(Version)</PackageVersion>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageTags>RocksDb</PackageTags>
+    <RepositoryUrl>https://github.com/zcsizmadia/RocksDb.Net.Runtimes</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/zcsizmadia/RocksDb.Net.Runtimes</PackageProjectUrl>
+    <Description>RocksDb.Net Native $(NativeArch) runtime assets.</Description>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <NativePath>$(MSBuildThisFileDirectory)/runtimes/$(NativeArch)/native/</NativePath>
+    <PackageNativePath>runtimes/$(NativeArch)/native/</PackageNativePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)/LICENSE" Pack="true" PackagePath="" />
+    <None Include="$(MSBuildThisFileDirectory)/README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="$(NativePath)$(NativeLib)" Pack="true" PackagePath="$(PackageNativePath)" />
+  </ItemGroup>
+</Project>

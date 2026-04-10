@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/GitHub/">
+    <File Path=".github/dependabot.yml" />
+  </Folder>
+  <Folder Name="/GitHub/Workflows/">
+    <File Path=".github/workflows/build.yml" />
+  </Folder>
+  <Project Path="RocksDb.Net.Runtime.linux-x64/RocksDb.Net.Runtime.linux-x64.csproj" />
+  <Project Path="RocksDb.Net.Runtime.osx-x64/RocksDb.Net.Runtime.osx-x64.csproj" />
+  <Project Path="RocksDb.Net.Runtime.win-x64/RocksDb.Net.Runtime.win-x64.csproj" />
+</Solution>

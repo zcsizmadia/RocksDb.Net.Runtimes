@@ -1,0 +1,8 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <NativeArch>osx-x64</NativeArch>
+    <NativeLib>librocksdb.dylib</NativeLib>
+  </PropertyGroup>
+
+  <Import Project="../RocksDb.Net.Runtime.csproj.template" />
+</Project>
