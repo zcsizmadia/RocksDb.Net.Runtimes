@@ -61,22 +61,25 @@ jobs:
         with:
           vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
 
+      - name: Check rocksdb version
+        shell: bash
+        run: |
+          # Extract version from csproj template to ensure it matches the tag version
+          VERSION_CSPROJ=$(awk 'match($0,/<Version>([^<]*)/,m) {print m[1]}' RocksDb.Net.Runtime.csproj.template)
+          # Extract version from vcpkg.json to ensure it matches the csproj template version
+          ROCKSDB_VERSION=$(awk 'match($0,/"version": "([^"]*)/,m) {print m[1]}' vcpkg/ports/rocksdb/vcpkg.json )
+          # Check if VERSION_ROCKSDB is the same as VERSION_CSPROJ or VERSION_CSPROJ starts with VERSION_ROCKSDB
+          if [[ "$VERSION_ROCKSDB" != "$VERSION_CSPROJ" && "$VERSION_CSPROJ" != "$VERSION_ROCKSDB-"* ]]; then
+            echo "Version mismatch! Tag version ($VERSION_ROCKSDB) does not match csproj version ($VERSION_CSPROJ)."
+            exit 1
+          fi
+          echo ok
+          exit 1
+
       - name: Build rocksdb
         shell: bash
         run: |
-          export ROCKSDB_VERSION_CSPROJ=$(awk 'match($0,/<RocksDbVersion>([^<]*)/,m) {print m[1]}' RocksDb.Net.Runtime.csproj.template)
-          echo "Expected version: $ROCKSDB_VERSION_CSPROJ"
-          ROCKSDB_VERSION=$(awk 'match($0,/"version": "([^"]*)/,m) {print m[1]}' vcpkg/ports/rocksdb/vcpkg.json )
-          echo "RocksDB version in vcpkg: $ROCKSDB_VERSION"
-          if [[ "$ROCKSDB_VERSION" != "$ROCKSDB_VERSION_CSPROJ" ]]; then
-            echo "Version mismatch! Version in csproj ($ROCKSDB_VERSION_CSPROJ) does not match vcpkg version ($ROCKSDB_VERSION)."
-            exit 1
-          fi
-          echo "Ok"
-          false
-
           vcpkg install rocksdb[snappy,zlib] --triplet=${{ matrix.triplet }} --overlay-triplets=vcpkg-overlays/triplets
-          find vcpkg/installed/${{ matrix.triplet }}
 
       - name: Copy to runtimes
         shell: bash
