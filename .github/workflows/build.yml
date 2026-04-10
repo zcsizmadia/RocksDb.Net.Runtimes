@@ -32,13 +32,13 @@ jobs:
           - platform: windows-x64
             os: windows-latest
             triplet: x64-windows
-            lib_file: bin/rocksdb.dll
+            lib_file: "bin/{rocksdb-shared.dll,zlib1.dll,snappy.dll}"
             runtime_arch: win-x64
 
           # - platform: windows-arm64
           #   os: windows-11-arm
           #   triplet: arm64-windows
-          #   lib_file: bin/librocksdb.dll
+          #   lib_file: "bin/{rocksdb-shared.dll,zlib1.dll,snappy.dll}"
           #   runtime_arch: win-arm64
 
           # - platform: macos-x64
@@ -65,7 +65,19 @@ jobs:
       - name: Build RocksDb
         shell: bash
         run: |
-          vcpkg install rocksdb:${{ matrix.triplet }}
+          mkdir -p vcpkg/installed/${{ matrix.triplet }}/bin
+          touch -p vcpkg/installed/${{ matrix.triplet }}/bin/rocksdb-shared.dll
+          touch -p vcpkg/installed/${{ matrix.triplet }}/bin/zlib1.dll
+          touch -p vcpkg/installed/${{ matrix.triplet }}/bin/snappy.dll
+          
+          mkdir -p runtimes/${{ matrix.runtime_arch }}/native
+          cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_file }} runtimes/${{ matrix.runtime_arch }}/native/
+
+          find vcpkg/installed/${{ matrix.triplet }}
+          find runtimes/${{ matrix.runtime_arch }}/native
+          
+          false
+          vcpkg install rocksdb[snappy,zlib]:${{ matrix.triplet }}
 
       - name: Copy to runtimes
         shell: bash

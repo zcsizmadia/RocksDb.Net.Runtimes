@@ -5,4 +5,8 @@
   </PropertyGroup>
 
   <Import Project="../RocksDb.Net.Runtime.csproj.template" />
+
+  <ItemGroup>
+    <Content Include="$(NativePath)librocksdb.so" Pack="true" PackagePath="$(PackageNativePath)" />
+  </ItemGroup>
 </Project>
