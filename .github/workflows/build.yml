@@ -66,9 +66,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p vcpkg/installed/${{ matrix.triplet }}/bin
-          touch -p vcpkg/installed/${{ matrix.triplet }}/bin/rocksdb-shared.dll
-          touch -p vcpkg/installed/${{ matrix.triplet }}/bin/zlib1.dll
-          touch -p vcpkg/installed/${{ matrix.triplet }}/bin/snappy.dll
+          touch vcpkg/installed/${{ matrix.triplet }}/bin/rocksdb-shared.dll
+          touch vcpkg/installed/${{ matrix.triplet }}/bin/zlib1.dll
+          touch vcpkg/installed/${{ matrix.triplet }}/bin/snappy.dll
           
           mkdir -p runtimes/${{ matrix.runtime_arch }}/native
           cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_file }} runtimes/${{ matrix.runtime_arch }}/native/
@@ -76,7 +76,6 @@ jobs:
           find vcpkg/installed/${{ matrix.triplet }}
           find runtimes/${{ matrix.runtime_arch }}/native
           
-          false
           vcpkg install rocksdb[snappy,zlib]:${{ matrix.triplet }}
 
       - name: Copy to runtimes
