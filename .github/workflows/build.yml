@@ -19,13 +19,13 @@ jobs:
           - platform: linux-x64
             os: ubuntu-latest
             triplet: x64-linux-dynamic
-            lib_file: lib/librocksdb.so
+            lib_file: lib/{librocksdb.so,libsnappy.1.so,libz.1.so}
             runtime_arch: linux-x64
 
           - platform: linux-arm64
             os: ubuntu-24.04-arm
             triplet: arm64-linux-dynamic
-            lib_file: lib/librocksdb.so
+            lib_file: lib/{librocksdb.so,libsnappy.1.so,libz.1.so}
             runtime_arch: linux-arm64
 
           - platform: windows-x64
@@ -43,13 +43,13 @@ jobs:
           - platform: macos-x64
             os: macos-latest
             triplet: x64-osx-dynamic
-            lib_file: lib/librocksdb.dylib
+            lib_file: lib/{librocksdb.dylib,libsnappy.1.dylib,libz.1.dylib}
             runtime_arch: osx-x64
 
           - platform: macos-arm64
             os: macos-latest
             triplet: arm64-osx-dynamic
-            lib_file: lib/librocksdb.dylib
+            lib_file: lib/{librocksdb.dylib,libsnappy.1.dylib,libz.1.dylib}
             runtime_arch: osx-arm64
 
     runs-on: ${{ matrix.os }}
@@ -63,6 +63,8 @@ jobs:
 
       - name: Build rocksdb
         shell: bash
+        env:
+          VCPKG_BUILD_TYPE: "release"
         run: |
           vcpkg install rocksdb[snappy,zlib]:${{ matrix.triplet }}
           find vcpkg/installed/${{ matrix.triplet }}

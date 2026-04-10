@@ -8,5 +8,7 @@
 
   <ItemGroup>
     <Content Include="$(NativePath)librocksdb.so" Pack="true" PackagePath="$(PackageNativePath)" />
+    <Content Include="$(NativePath)libsnappy.1.so" Pack="true" PackagePath="$(PackageNativePath)" />
+    <Content Include="$(NativePath)libz.1.so" Pack="true" PackagePath="$(PackageNativePath)" />
   </ItemGroup>
 </Project>

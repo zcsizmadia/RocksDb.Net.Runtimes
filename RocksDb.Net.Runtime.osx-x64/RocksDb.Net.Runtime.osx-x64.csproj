@@ -7,5 +7,7 @@
 
   <ItemGroup>
     <Content Include="$(NativePath)librocksdb.dylib" Pack="true" PackagePath="$(PackageNativePath)" />
+    <Content Include="$(NativePath)libsnappy.1.dylib" Pack="true" PackagePath="$(PackageNativePath)" />
+    <Content Include="$(NativePath)libz.1.dylib" Pack="true" PackagePath="$(PackageNativePath)" />
   </ItemGroup>
 </Project>
