@@ -71,15 +71,12 @@ jobs:
           # Extract version from vcpkg.json
           VERSION_ROCKSDB=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/rocksdb/vcpkg.json)
           echo "Version from vcpkg.json: $VERSION_ROCKSDB"
-          
+
           # Check if VERSION_ROCKSDB is the same as VERSION_CSPROJ or VERSION_CSPROJ starts with VERSION_ROCKSDB
           if [[ "$VERSION_ROCKSDB" != "$VERSION_CSPROJ" && "$VERSION_CSPROJ" != "$VERSION_ROCKSDB-"* ]]; then
             echo "Version mismatch! Tag version ($VERSION_ROCKSDB) does not match csproj version ($VERSION_CSPROJ)."
             exit 1
           fi
-
-          echo ok
-          exit 1
 
       - name: Build rocksdb
         shell: bash
@@ -140,10 +137,10 @@ jobs:
           VERSION="${vertag[2]}"
           [[ "${VERSION:0:1}" == "v" ]] && VERSION="${VERSION:1}"
 
-          # Extract expected version from csproj template to ensure it matches the tag version
+          # Extract version from csproj template
           VERSION_CSPROJ=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' RocksDb.Net.Runtime.csproj.template)
 
-          # Check if the version from the tag matches the expected version from the csproj template
+          # Check if the version from the tag matches the version from the csproj template
           if [[ "$VERSION" != "$VERSION_CSPROJ" ]]; then
             echo "Version mismatch! Tag version ($VERSION) does not match csproj version ($VERSION_CSPROJ)."
             exit 1
