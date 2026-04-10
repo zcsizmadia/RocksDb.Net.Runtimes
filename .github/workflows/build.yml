@@ -67,7 +67,7 @@ jobs:
           # Extract version from csproj template to ensure it matches the tag version
           VERSION_CSPROJ=$(awk 'match($0,/<Version>([^<]*)/,m) {print m[1]}' RocksDb.Net.Runtime.csproj.template)
           # Extract version from vcpkg.json to ensure it matches the csproj template version
-          ROCKSDB_VERSION=$(awk 'match($0,/"version": "([^"]*)/,m) {print m[1]}' vcpkg/ports/rocksdb/vcpkg.json )
+          VERSION_ROCKSDB=$(awk 'match($0,/"version": "([^"]*)/,m) {print m[1]}' vcpkg/ports/rocksdb/vcpkg.json )
           # Check if VERSION_ROCKSDB is the same as VERSION_CSPROJ or VERSION_CSPROJ starts with VERSION_ROCKSDB
           if [[ "$VERSION_ROCKSDB" != "$VERSION_CSPROJ" && "$VERSION_CSPROJ" != "$VERSION_ROCKSDB-"* ]]; then
             echo "Version mismatch! Tag version ($VERSION_ROCKSDB) does not match csproj version ($VERSION_CSPROJ)."
