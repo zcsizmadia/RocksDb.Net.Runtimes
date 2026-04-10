@@ -18,37 +18,37 @@ jobs:
         include:
           - platform: linux-x64
             os: ubuntu-latest
-            triplet: x64-linux-dynamic-rel
+            triplet: x64-linux-dynamic
             lib_file: lib/{librocksdb.so,libsnappy.1.so,libz.1.so}
             runtime_arch: linux-x64
 
           - platform: linux-arm64
             os: ubuntu-24.04-arm
-            triplet: arm64-linux-dynamic-rel
+            triplet: arm64-linux-dynamic
             lib_file: lib/{librocksdb.so,libsnappy.1.so,libz.1.so}
             runtime_arch: linux-arm64
 
           - platform: windows-x64
             os: windows-latest
-            triplet: x64-windows-rel
+            triplet: x64-windows
             lib_file: "bin/{rocksdb-shared.dll,zlib1.dll,snappy.dll}"
             runtime_arch: win-x64
 
           - platform: windows-arm64
             os: windows-11-arm
-            triplet: arm64-windows-rel
+            triplet: arm64-windows
             lib_file: "bin/{rocksdb-shared.dll,zlib1.dll,snappy.dll}"
             runtime_arch: win-arm64
 
           - platform: macos-x64
             os: macos-latest
-            triplet: x64-osx-dynamic-rel
+            triplet: x64-osx-dynamic
             lib_file: lib/{librocksdb.dylib,libsnappy.1.dylib,libz.1.dylib}
             runtime_arch: osx-x64
 
           - platform: macos-arm64
             os: macos-latest
-            triplet: arm64-osx-dynamic-rel
+            triplet: arm64-osx-dynamic
             lib_file: lib/{librocksdb.dylib,libsnappy.1.dylib,libz.1.dylib}
             runtime_arch: osx-arm64
 
@@ -64,7 +64,7 @@ jobs:
       - name: Build rocksdb
         shell: bash
         run: |
-          vcpkg install rocksdb[snappy,zlib]:${{ matrix.triplet }}
+          VCPKG_BUILD_TYPE=release vcpkg install rocksdb[snappy,zlib]:${{ matrix.triplet }}
           find vcpkg/installed/${{ matrix.triplet }}
 
       - name: Copy to runtimes
