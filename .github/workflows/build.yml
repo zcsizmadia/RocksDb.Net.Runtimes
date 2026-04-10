@@ -64,6 +64,19 @@ jobs:
       - name: Build rocksdb
         shell: bash
         run: |
+          export EXPECTED_VERSION=$(awk 'match($0,/<Version>([^<]*)/,m) {print m[1]}' RocksDb.Net.Runtime.csproj.template)
+          echo "Expected version: $EXPECTED_VERSION"
+          vcpkg search rocksdb
+          ROCKSDB_VERSION=$(awk 'match($0,/"version": "([^"]*)/,m) {print m[1]}' vcpkg/ports/rocksdb/vcpkg.json )
+          # Expected version should be a prefix of the vcpkg version, since vcpkg may include additional patch version or suffixes
+          if [[ "$ROCKSDB_VERSION" != "$EXPECTED_VERSION"* ]]; then
+            echo "Version mismatch! Expected version ($EXPECTED_VERSION) is not a prefix of vcpkg version ($ROCKSDB_VERSION)."
+            exit 1
+          fi
+          echo "RocksDB version in vcpkg: $ROCKSDB_VERSION"
+          cat vcpkg/ports/rocksdb/vcpkg.json
+          false
+
           vcpkg install rocksdb[snappy,zlib] --triplet=${{ matrix.triplet }} --overlay-triplets=vcpkg-overlays/triplets
           find vcpkg/installed/${{ matrix.triplet }}
 
@@ -114,4 +127,17 @@ jobs:
       # Publish to NuGet.org only on release events
       - name: Publish to NuGet.org
         if: github.event_name == 'release'
-        run: dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        shell: bash
+        run: |
+          # Extract version from tag
+          vertag=(${GITHUB_REF//\// })
+          VERSION="${vertag[2]}"
+          [[ "${VERSION:0:1}" == "v" ]] && VERSION="${VERSION:1}"
+          # Extract expected version from csproj template to ensure it matches the tag version
+          EXPECTED_VERSION=$(awk 'match($0,/<Version>([^<]*)/,m) {print m[1]}' RocksDb.Net.Runtime.csproj.template)
+          # Check if the version from the tag matches the expected version from the csproj template
+          if [[ "$VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "Version mismatch! Tag version ($VERSION) does not match expected version ($EXPECTED_VERSION)."
+            exit 1
+          fi
+          dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

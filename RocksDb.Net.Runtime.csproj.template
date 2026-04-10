@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>11.0.4.1</Version>
+    <Version>11.0.4-beta.1</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -16,9 +16,11 @@
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageTags>RocksDb</PackageTags>
+    <PackageTags>rocksdb;leveldb;embedded;database;key-value;store;cache;dictionary</PackageTags>
+    <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/zcsizmadia/RocksDb.Net.Runtimes</RepositoryUrl>
     <PackageProjectUrl>https://github.com/zcsizmadia/RocksDb.Net.Runtimes</PackageProjectUrl>
+    <PackageIcon>logo-128.png</PackageIcon>
     <Description>RocksDb.Net Native $(NativeArch) runtime assets.</Description>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
@@ -35,5 +37,6 @@
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)/LICENSE" Pack="true" PackagePath="" />
     <None Include="$(MSBuildThisFileDirectory)/README.md" Pack="true" PackagePath="" />
+    <None Include="$(MSBuildThisFileDirectory)/logo-128.png" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>
