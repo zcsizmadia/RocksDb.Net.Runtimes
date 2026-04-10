@@ -68,13 +68,13 @@ jobs:
           echo "Expected version: $EXPECTED_VERSION"
           vcpkg search rocksdb
           ROCKSDB_VERSION=$(awk 'match($0,/"version": "([^"]*)/,m) {print m[1]}' vcpkg/ports/rocksdb/vcpkg.json )
+          echo "RocksDB version in vcpkg: $ROCKSDB_VERSION"
           # Expected version should be a prefix of the vcpkg version, since vcpkg may include additional patch version or suffixes
-          if [[ "$ROCKSDB_VERSION" != "$EXPECTED_VERSION"* ]]; then
+          echo $ROCKSDB_VERSION | grep -q "^$EXPECTED_VERSION" || {
             echo "Version mismatch! Expected version ($EXPECTED_VERSION) is not a prefix of vcpkg version ($ROCKSDB_VERSION)."
             exit 1
-          fi
-          echo "RocksDB version in vcpkg: $ROCKSDB_VERSION"
-          cat vcpkg/ports/rocksdb/vcpkg.json
+          }
+          echo "Ok"
           false
 
           vcpkg install rocksdb[snappy,zlib] --triplet=${{ matrix.triplet }} --overlay-triplets=vcpkg-overlays/triplets
