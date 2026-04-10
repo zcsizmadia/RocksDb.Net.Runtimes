@@ -64,16 +64,14 @@ jobs:
       - name: Build rocksdb
         shell: bash
         run: |
-          export EXPECTED_VERSION=$(awk 'match($0,/<Version>([^<]*)/,m) {print m[1]}' RocksDb.Net.Runtime.csproj.template)
-          echo "Expected version: $EXPECTED_VERSION"
-          vcpkg search rocksdb
+          export ROCKSDB_VERSION_CSPROJ=$(awk 'match($0,/<RocksDbVersion>([^<]*)/,m) {print m[1]}' RocksDb.Net.Runtime.csproj.template)
+          echo "Expected version: $ROCKSDB_VERSION_CSPROJ"
           ROCKSDB_VERSION=$(awk 'match($0,/"version": "([^"]*)/,m) {print m[1]}' vcpkg/ports/rocksdb/vcpkg.json )
           echo "RocksDB version in vcpkg: $ROCKSDB_VERSION"
-          # Expected version should be a prefix of the vcpkg version, since vcpkg may include additional patch version or suffixes
-          echo $ROCKSDB_VERSION | grep -q "^$EXPECTED_VERSION" || {
-            echo "Version mismatch! Expected version ($EXPECTED_VERSION) is not a prefix of vcpkg version ($ROCKSDB_VERSION)."
+          if [[ "$ROCKSDB_VERSION" != "$ROCKSDB_VERSION_CSPROJ" ]]; then
+            echo "Version mismatch! Version in csproj ($ROCKSDB_VERSION_CSPROJ) does not match vcpkg version ($ROCKSDB_VERSION)."
             exit 1
-          }
+          fi
           echo "Ok"
           false
 
@@ -134,10 +132,10 @@ jobs:
           VERSION="${vertag[2]}"
           [[ "${VERSION:0:1}" == "v" ]] && VERSION="${VERSION:1}"
           # Extract expected version from csproj template to ensure it matches the tag version
-          EXPECTED_VERSION=$(awk 'match($0,/<Version>([^<]*)/,m) {print m[1]}' RocksDb.Net.Runtime.csproj.template)
+          VERSION_CSPROJ=$(awk 'match($0,/<Version>([^<]*)/,m) {print m[1]}' RocksDb.Net.Runtime.csproj.template)
           # Check if the version from the tag matches the expected version from the csproj template
-          if [[ "$VERSION" != "$EXPECTED_VERSION" ]]; then
-            echo "Version mismatch! Tag version ($VERSION) does not match expected version ($EXPECTED_VERSION)."
+          if [[ "$VERSION" != "$VERSION_CSPROJ" ]]; then
+            echo "Version mismatch! Tag version ($VERSION) does not match csproj version ($VERSION_CSPROJ)."
             exit 1
           fi
           dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

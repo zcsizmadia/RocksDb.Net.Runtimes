@@ -5,7 +5,8 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>11.0.4-beta.1</Version>
+    <RocksDbVersion>11.0.4</RocksDbVersion>
+    <Version>$(RocksDbVersion)-beta.1</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -28,6 +29,13 @@
   <PropertyGroup>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>RocksDbVersion</_Parameter1>
+      <_Parameter2>$(RocksDbVersion)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
 
   <PropertyGroup>
     <NativePath>$(MSBuildThisFileDirectory)/runtimes/$(NativeArch)/native/</NativePath>
