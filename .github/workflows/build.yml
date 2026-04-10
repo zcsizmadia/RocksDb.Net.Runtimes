@@ -59,28 +59,17 @@ jobs:
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: "81e3c888ef717a026eb57bb2f3cb0dbd30246271"
+          vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
 
-      - name: Build RocksDb
+      - name: Build rocksdb
         shell: bash
         run: |
-          mkdir -p vcpkg/installed/${{ matrix.triplet }}/bin
-          touch vcpkg/installed/${{ matrix.triplet }}/bin/rocksdb-shared.dll
-          touch vcpkg/installed/${{ matrix.triplet }}/bin/zlib1.dll
-          touch vcpkg/installed/${{ matrix.triplet }}/bin/snappy.dll
-          
-          mkdir -p runtimes/${{ matrix.runtime_arch }}/native
-          cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_file }} runtimes/${{ matrix.runtime_arch }}/native/
-
-          find vcpkg/installed/${{ matrix.triplet }}
-          find runtimes/${{ matrix.runtime_arch }}/native
-          
           vcpkg install rocksdb[snappy,zlib]:${{ matrix.triplet }}
+          find vcpkg/installed/${{ matrix.triplet }}
 
       - name: Copy to runtimes
         shell: bash
         run: |
-          find vcpkg/installed
           mkdir -p runtimes/${{ matrix.runtime_arch }}/native
           cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_file }} runtimes/${{ matrix.runtime_arch }}/native/
 
