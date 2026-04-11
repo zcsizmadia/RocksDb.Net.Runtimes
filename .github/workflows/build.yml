@@ -100,7 +100,7 @@ jobs:
               exit 1
             fi
           elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            for lib in *; do
+            for lib in runtimes/${{ matrix.runtime_arch }}/native/*; do
               echo "Checking $lib..."
               otool -L "$lib"
             done
