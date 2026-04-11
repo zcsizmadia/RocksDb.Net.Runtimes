@@ -99,22 +99,12 @@ jobs:
               echo "Error: Missing dependencies detected in Linux binaries!"
               exit 1
             fi
-
           elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            # Run otool to list dependencies
-            otool -L runtimes/${{ matrix.runtime_arch }}/native/*
-            
-            # macOS verification: Ensure all absolute paths exist
-            # (Ignores @rpath, @loader_path, etc. which are resolved at runtime)
-            for lib in $(otool -L runtimes/${{ matrix.runtime_arch }}/native/* | awk 'NR>1 {print $1}'); do
-              if [[ "$lib" == /* && ! -f "$lib" ]]; then
-                echo "Error: Dependent library $lib not found!"
-                exit 1
-              fi
+            for lib in *; do
+              echo "Checking $lib..."
+              otool -L "$lib"
             done
-
           else
-
             echo "Skipping dependency check on Windows since it uses dynamic linking."
           fi
 

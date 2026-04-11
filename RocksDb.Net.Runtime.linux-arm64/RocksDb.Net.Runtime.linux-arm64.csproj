@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <NativeArch>linux-x64</NativeArch>
+    <NativeArch>linux-arm64</NativeArch>
   </PropertyGroup>
 
   <Import Project="../RocksDb.Net.Runtime.csproj.template" />
