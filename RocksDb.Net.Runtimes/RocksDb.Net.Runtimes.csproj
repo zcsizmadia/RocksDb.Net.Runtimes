@@ -5,10 +5,6 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>11.0.4-beta.1</Version>
-  </PropertyGroup>
-
-  <PropertyGroup>
     <Authors>Zoltan Csizmadia</Authors>
     <Owners>Zoltan Csizmadia</Owners>
     <PackageId>RocksDb.Net.Runtimes</PackageId>
