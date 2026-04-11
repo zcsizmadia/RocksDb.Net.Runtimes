@@ -64,9 +64,9 @@ jobs:
       - name: Check rocksdb version
         shell: bash
         run: |
-          # Extract version from csproj template
-          VERSION_CSPROJ=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' RocksDb.Net.Runtime.csproj.template)
-          echo "Version from csproj template: $VERSION_CSPROJ"
+          # Extract version from csproj
+          VERSION_CSPROJ=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' RocksDb.Net.Runtimes/RocksDb.Net.Runtimes.csproj)
+          echo "Version from csproj: $VERSION_CSPROJ"
 
           # Extract version from vcpkg.json
           VERSION_ROCKSDB=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/rocksdb/vcpkg.json)
@@ -86,21 +86,21 @@ jobs:
       - name: Copy to runtimes
         shell: bash
         run: |
-          mkdir -p runtimes/${{ matrix.runtime_arch }}/native
-          cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_files }} runtimes/${{ matrix.runtime_arch }}/native/
+          mkdir -p RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native
+          cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_files }} RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native/
 
       - name: Check if native libs are loadable
         shell: bash
         run: |
           if [[ "${{ runner.os }}" == "Linux" ]]; then
             # Run ldd and grep for "not found". If found, exit with error.
-            ldd runtimes/${{ matrix.runtime_arch }}/native/* | tee ldd_output.txt
+            ldd RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native/* | tee ldd_output.txt
             if grep -q "not found" ldd_output.txt; then
               echo "Error: Missing dependencies detected in Linux binaries!"
               exit 1
             fi
           elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            for lib in runtimes/${{ matrix.runtime_arch }}/native/*; do
+            for lib in RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native/*; do
               echo "Checking $lib..."
               otool -L "$lib"
             done
@@ -112,7 +112,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: runtimes-${{ matrix.platform }}
-          path: runtimes
+          path: RocksDb.Net.Runtimes/runtimes
 
   build-nupkg:
     needs: [build-rocksdb]
@@ -131,13 +131,12 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: runtimes-*
-          path: runtimes
+          path: RocksDb.Net.Runtimes/runtimes
           merge-multiple: true
 
       - name: Pack NuGet package
         shell: bash
         run: |
-          ls -lR runtimes
           dotnet pack -c Release -o nupkgs
 
       - name: Upload NuGet package artifact
@@ -156,10 +155,10 @@ jobs:
           VERSION="${vertag[2]}"
           [[ "${VERSION:0:1}" == "v" ]] && VERSION="${VERSION:1}"
 
-          # Extract version from csproj template
-          VERSION_CSPROJ=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' RocksDb.Net.Runtime.csproj.template)
+          # Extract version from csproj
+          VERSION_CSPROJ=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' RocksDb.Net.Runtimes/RocksDb.Net.Runtimes.csproj)
 
-          # Check if the version from the tag matches the version from the csproj template
+          # Check if the version from the tag matches the version from the csproj
           if [[ "$VERSION" != "$VERSION_CSPROJ" ]]; then
             echo "Version mismatch! Tag version ($VERSION) does not match csproj version ($VERSION_CSPROJ)."
             exit 1
