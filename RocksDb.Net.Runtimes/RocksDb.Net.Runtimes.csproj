@@ -21,9 +21,13 @@
     <IsPackable>true</IsPackable>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <NoWarn>$(NoWarn);NU5128</NoWarn>
-  </PropertyGroup>
+  <!-- Include the RocksDb version in the assembly metadata, since the native assets don't have a way to specify the version. -->
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+			<_Parameter1>RocksDbVersion</_Parameter1>
+			<_Parameter2>$(RocksDbVersion)</_Parameter2>
+		</AssemblyAttribute>
+	</ItemGroup>
 
   <ItemGroup>
     <None Include="../LICENSE" Pack="true" PackagePath="" />

@@ -1,12 +1,10 @@
-name: RocksDb.Net.Runtimes
+name: Build
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  release:
-    types: [ published ]
 
 jobs:
   build-rocksdb:
@@ -64,17 +62,17 @@ jobs:
       - name: Check rocksdb version
         shell: bash
         run: |
-          # Extract version from csproj
-          VERSION_CSPROJ=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Directory.Build.props)
-          echo "Version from csproj: $VERSION_CSPROJ"
+          # Extract rocksdb version from csproj
+          VERSION_ROCKSDB_CSPROJ="$(dotnet msbuild RocksDb.Net.Runtimes/ -getProperty:RocksDbVersion -nologo -v:q | tr -d '\r' | xargs)"
+          echo "Version from csproj: $VERSION_ROCKSDB_CSPROJ"
 
           # Extract version from vcpkg.json
           VERSION_ROCKSDB=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/rocksdb/vcpkg.json)
           echo "Version from vcpkg.json: $VERSION_ROCKSDB"
 
-          # Check if VERSION_ROCKSDB is the same as VERSION_CSPROJ or VERSION_CSPROJ starts with VERSION_ROCKSDB
-          if [[ "$VERSION_ROCKSDB" != "$VERSION_CSPROJ" && "$VERSION_CSPROJ" != "$VERSION_ROCKSDB-"* ]]; then
-            echo "Version mismatch! Tag version ($VERSION_ROCKSDB) does not match csproj version ($VERSION_CSPROJ)."
+          # Check if VERSION_ROCKSDB is the same as VERSION_ROCKSDB_CSPROJ
+          if [[ "$VERSION_ROCKSDB" != "$VERSION_ROCKSDB_CSPROJ" ]]; then
+            echo "Version mismatch! Tag version ($VERSION_ROCKSDB) does not match csproj version ($VERSION_ROCKSDB_CSPROJ)."
             exit 1
           fi
 
@@ -88,6 +86,45 @@ jobs:
         run: |
           mkdir -p RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native
           cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_files }} RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native/
+
+      - name: Post-process macOS binaries (Generic)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          LIB_DIR="RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native"
+          TARGET_LIB="$LIB_DIR/librocksdb.dylib"
+
+          echo "Analyzing dependencies for $TARGET_LIB..."
+
+          # 1. Dynamically find and fix Snappy dependency
+          OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.[0-9.]*dylib" | head -n 1)
+          if [ ! -z "$OLD_SNAPPY" ]; then
+            echo "Found Snappy link: $OLD_SNAPPY -> Redirecting to @loader_path/libsnappy.1.dylib"
+            install_name_tool -change "$OLD_SNAPPY" "@loader_path/libsnappy.1.dylib" "$TARGET_LIB"
+          fi
+
+          # 2. Dynamically find and fix Zlib dependency
+          # Search for 'libz' followed by versioning
+          OLD_ZLIB=$(otool -L "$TARGET_LIB" | grep -E -o "@rpath/libz\.[0-9.]*dylib" | head -n 1)
+          if [ ! -z "$OLD_ZLIB" ]; then
+            echo "Found Zlib link: $OLD_ZLIB -> Redirecting to @loader_path/libz.1.dylib"
+            install_name_tool -change "$OLD_ZLIB" "@loader_path/libz.1.dylib" "$TARGET_LIB"
+          fi
+
+          # 3. Standardize internal IDs (Self-Identity)
+          # This ensures the files identify as the names we expect
+          install_name_tool -id "@rpath/librocksdb.dylib" "$TARGET_LIB"
+          
+          if [ -f "$LIB_DIR/libsnappy.1.dylib" ]; then
+            install_name_tool -id "@rpath/libsnappy.1.dylib" "$LIB_DIR/libsnappy.1.dylib"
+          fi
+
+          if [ -f "$LIB_DIR/libz.1.dylib" ]; then
+            install_name_tool -id "@rpath/libz.1.dylib" "$LIB_DIR/libz.1.dylib"
+          fi
+
+          echo "Post-processing complete. Verified links:"
+          otool -L "$TARGET_LIB"
 
       - name: Check if native libs are loadable
         shell: bash
@@ -176,55 +213,3 @@ jobs:
           dotnet restore --source ../nupkgs
           dotnet build --no-restore
           dotnet run --no-build
-
-  publish-nupkg:
-    needs: [validate-nupkg]
-    runs-on: ubuntu-latest
-    if: always() && needs.validate-nupkg.result == 'success'
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install .NET SDKs
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: |
-            10.0.x
-
-      - name: Download NuGet package artifacts
-        uses: actions/download-artifact@v8
-        with:
-          pattern: nuget-package
-          path: nupkgs
-
-      - name: Check version consistency
-        shell: bash
-        run: |
-          # Extract version from tag
-          vertag=(${GITHUB_REF//\// })
-          VERSION="${vertag[2]}"
-          [[ "${VERSION:0:1}" == "v" ]] && VERSION="${VERSION:1}"
-
-          # Extract version from csproj
-          VERSION_CSPROJ=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Directory.Build.props)
-
-          # Check if the version from the tag matches the version from the csproj
-          if [[ "$VERSION" != "$VERSION_CSPROJ" ]]; then
-            echo "Version mismatch! Tag version ($VERSION) does not match csproj version ($VERSION_CSPROJ)."
-            exit 1
-          fi
-
-          # Check that all the nupkgs files have the same version in their filename
-          for file in nupkgs/*.nupkg; do
-            if ! echo $file | grep -qE ".*\.$VERSION\.nupkg$"; then
-              echo "Version mismatch in filename! File '$file' does not contain version '$VERSION'."
-              exit 1
-            fi
-          done
-
-      # Publish to NuGet.org only on release events
-      - name: Publish to NuGet.org
-        if: github.event_name == 'release'
-        shell: bash
-        run: |
-          # Publish the package to NuGet.org
-          dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
