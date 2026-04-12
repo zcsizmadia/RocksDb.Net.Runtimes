@@ -87,44 +87,91 @@ jobs:
           mkdir -p RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native
           cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_files }} RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native/
 
-      - name: Post-process macOS binaries
-        if: runner.os == 'macOS'
-        shell: bash
+      - name: Post-process native binaries
         run: |
           LIB_DIR="RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native"
-          TARGET_LIB="$LIB_DIR/librocksdb.11.dylib"
-
-          echo "Analyzing dependencies for $TARGET_LIB..."
-
-          # 1. Dynamically find and fix Snappy dependency
-          OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.[0-9.]*dylib" | head -n 1)
-          if [ ! -z "$OLD_SNAPPY" ]; then
-            echo "Found Snappy link: $OLD_SNAPPY -> Redirecting to @loader_path/libsnappy.1.dylib"
-            install_name_tool -change "$OLD_SNAPPY" "@loader_path/libsnappy.1.dylib" "$TARGET_LIB"
-          fi
-
-          # 2. Dynamically find and fix Zlib dependency
-          # Search for 'libz' followed by versioning
-          OLD_ZLIB=$(otool -L "$TARGET_LIB" | grep -E -o "@rpath/libz\.[0-9.]*dylib" | head -n 1)
-          if [ ! -z "$OLD_ZLIB" ]; then
-            echo "Found Zlib link: $OLD_ZLIB -> Redirecting to @loader_path/libz.1.dylib"
-            install_name_tool -change "$OLD_ZLIB" "@loader_path/libz.1.dylib" "$TARGET_LIB"
-          fi
-
-          # 3. Standardize internal IDs (Self-Identity)
-          # This ensures the files identify as the names we expect
-          install_name_tool -id "@rpath/librocksdb.11.dylib" "$TARGET_LIB"
+          ROCKSDB_MAJOR_VERSION="11"
           
-          if [ -f "$LIB_DIR/libsnappy.1.dylib" ]; then
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            TARGET_LIB="$LIB_DIR/librocksdb.so.$ROCKSDB_MAJOR_VERSION"
+            patchelf --set-rpath '$ORIGIN' "$TARGET_LIB"
+
+            # Check for missing dependencies using ldd. If any "not found" entries are present, fail the build.
+            ldd $LIB_DIR/* | tee ldd_output.txt
+            if grep -q "not found" ldd_output.txt; then
+              echo "Error: Missing dependencies detected in Linux binaries!"
+              exit 1
+            fi
+
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            TARGET_LIB_FILE="librocksdb.$ROCKSDB_MAJOR_VERSION.dylib"
+            TARGET_LIB="$LIB_DIR/$TARGET_LIB_FILE"
+
+            # Dynamically find and fix Snappy dependency. Search for 'libsnappy.1.' followed by versioning
+            OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.1\.[0-9.]*dylib" | head -n 1)
+            if [ ! -z "$OLD_SNAPPY" ]; then
+              install_name_tool -change "$OLD_SNAPPY" "@loader_path/libsnappy.1.dylib" "$TARGET_LIB"
+            fi
+
+            # Dynamically find and fix Zlib dependency. Search for 'libz.1.' followed by versioning
+            OLD_ZLIB=$(otool -L "$TARGET_LIB" | grep -E -o "@rpath/libz\.1\.[0-9.]*dylib" | head -n 1)
+            if [ ! -z "$OLD_ZLIB" ]; then
+              install_name_tool -change "$OLD_ZLIB" "@loader_path/libz.1.dylib" "$TARGET_LIB"
+            fi
+
+            # Standardize internal IDs (Self-Identity)
+            # This ensures the files identify as the names we expect
+
+            install_name_tool -id "@rpath/$TARGET_LIB_FILE" "$TARGET_LIB"
             install_name_tool -id "@rpath/libsnappy.1.dylib" "$LIB_DIR/libsnappy.1.dylib"
-          fi
-
-          if [ -f "$LIB_DIR/libz.1.dylib" ]; then
             install_name_tool -id "@rpath/libz.1.dylib" "$LIB_DIR/libz.1.dylib"
+
+            for lib in $LIB_DIR/*; do
+              otool -L "$lib"
+            done
+
+            else
+              echo "Skipping post-processing on Windows since it uses dynamic linking."
           fi
 
-          echo "Post-processing complete. Verified links:"
-          otool -L "$TARGET_LIB"
+      # - name: Post-process macOS binaries
+      #   if: runner.os == 'macOS'
+      #   shell: bash
+      #   run: |
+      #     LIB_DIR="RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native"
+      #     TARGET_LIB="$LIB_DIR/librocksdb.11.dylib"
+
+      #     echo "Analyzing dependencies for $TARGET_LIB..."
+
+      #     # 1. Dynamically find and fix Snappy dependency
+      #     OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.[0-9.]*dylib" | head -n 1)
+      #     if [ ! -z "$OLD_SNAPPY" ]; then
+      #       echo "Found Snappy link: $OLD_SNAPPY -> Redirecting to @loader_path/libsnappy.1.dylib"
+      #       install_name_tool -change "$OLD_SNAPPY" "@loader_path/libsnappy.1.dylib" "$TARGET_LIB"
+      #     fi
+
+      #     # 2. Dynamically find and fix Zlib dependency
+      #     # Search for 'libz' followed by versioning
+      #     OLD_ZLIB=$(otool -L "$TARGET_LIB" | grep -E -o "@rpath/libz\.[0-9.]*dylib" | head -n 1)
+      #     if [ ! -z "$OLD_ZLIB" ]; then
+      #       echo "Found Zlib link: $OLD_ZLIB -> Redirecting to @loader_path/libz.1.dylib"
+      #       install_name_tool -change "$OLD_ZLIB" "@loader_path/libz.1.dylib" "$TARGET_LIB"
+      #     fi
+
+      #     # 3. Standardize internal IDs (Self-Identity)
+      #     # This ensures the files identify as the names we expect
+      #     install_name_tool -id "@rpath/librocksdb.11.dylib" "$TARGET_LIB"
+          
+      #     if [ -f "$LIB_DIR/libsnappy.1.dylib" ]; then
+      #       install_name_tool -id "@rpath/libsnappy.1.dylib" "$LIB_DIR/libsnappy.1.dylib"
+      #     fi
+
+      #     if [ -f "$LIB_DIR/libz.1.dylib" ]; then
+      #       install_name_tool -id "@rpath/libz.1.dylib" "$LIB_DIR/libz.1.dylib"
+      #     fi
+
+      #     echo "Post-processing complete. Verified links:"
+      #     otool -L "$TARGET_LIB"
 
       - name: Check if native libs are loadable
         shell: bash
