@@ -88,18 +88,18 @@ class Program
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             os = "win";
-            libraryNameExt = $"{LibName}.dll";
+            libraryNameExt = $"{LibName}.1.dll";
 
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
             os = "osx";
-            libraryNameExt = $"{LibName}.dylib";
+            libraryNameExt = $"{LibName}.1.dylib";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             os = "linux";
-            libraryNameExt = $"{LibName}.so";
+            libraryNameExt = $"{LibName}.so.1";
         }
         else
         {

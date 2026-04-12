@@ -17,13 +17,13 @@ jobs:
           - platform: linux-x64
             os: ubuntu-latest
             triplet: x64-linux-dynamic-release
-            lib_files: lib/{librocksdb.so,libz.so.1,libsnappy.so.1}
+            lib_files: lib/{librocksdb.so.1,libz.so.1,libsnappy.so.1}
             runtime_arch: linux-x64
 
           - platform: linux-arm64
             os: ubuntu-24.04-arm
             triplet: arm64-linux-dynamic-release
-            lib_files: lib/{librocksdb.so,libz.so.1,libsnappy.so.1}
+            lib_files: lib/{librocksdb.so.1,libz.so.1,libsnappy.so.1}
             runtime_arch: linux-arm64
 
           - platform: windows-x64
@@ -41,13 +41,13 @@ jobs:
           - platform: macos-x64
             os: macos-latest
             triplet: x64-osx-dynamic-release
-            lib_files: lib/{librocksdb.dylib,libz.1.dylib,libsnappy.1.dylib}
+            lib_files: lib/{librocksdb.1.dylib,libz.1.dylib,libsnappy.1.dylib}
             runtime_arch: osx-x64
 
           - platform: macos-arm64
             os: macos-latest
             triplet: arm64-osx-dynamic-release
-            lib_files: lib/{librocksdb.dylib,libz.1.dylib,libsnappy.1.dylib}
+            lib_files: lib/{librocksdb.1.dylib,libz.1.dylib,libsnappy.1.dylib}
             runtime_arch: osx-arm64
 
     runs-on: ${{ matrix.os }}
@@ -87,12 +87,12 @@ jobs:
           mkdir -p RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native
           cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_files }} RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native/
 
-      - name: Post-process macOS binaries (Generic)
+      - name: Post-process macOS binaries
         if: runner.os == 'macOS'
         shell: bash
         run: |
           LIB_DIR="RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native"
-          TARGET_LIB="$LIB_DIR/librocksdb.dylib"
+          TARGET_LIB="$LIB_DIR/librocksdb.1.dylib"
 
           echo "Analyzing dependencies for $TARGET_LIB..."
 
@@ -113,7 +113,7 @@ jobs:
 
           # 3. Standardize internal IDs (Self-Identity)
           # This ensures the files identify as the names we expect
-          install_name_tool -id "@rpath/librocksdb.dylib" "$TARGET_LIB"
+          install_name_tool -id "@rpath/librocksdb.1.dylib" "$TARGET_LIB"
           
           if [ -f "$LIB_DIR/libsnappy.1.dylib" ]; then
             install_name_tool -id "@rpath/libsnappy.1.dylib" "$LIB_DIR/libsnappy.1.dylib"
