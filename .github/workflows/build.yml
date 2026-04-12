@@ -111,8 +111,9 @@ jobs:
       - name: Post-process macOS native binaries
         if: runner.os == 'macOS'
         run: |
-          TARGET_LIB_FILE="librocksdb.$ROCKSDB_VERSION_MAJOR.dylib"
-          TARGET_LIB="RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native/$TARGET_LIB_FILE"
+          TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native"
+          TARGET_LIB_FILE_NAME="librocksdb.$ROCKSDB_VERSION_MAJOR.dylib"
+          TARGET_LIB="$TARGET_DIR/$TARGET_LIB_FILE_NAME"
 
           # Dynamically find and fix Snappy dependency. Search for 'libsnappy.1.' followed by versioning
           OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.1\.[0-9.]*dylib" | head -n 1)
@@ -129,11 +130,11 @@ jobs:
           # Standardize internal IDs (Self-Identity)
           # This ensures the files identify as the names we expect
 
-          install_name_tool -id "@rpath/$TARGET_LIB_FILE" "$TARGET_LIB"
-          install_name_tool -id "@rpath/libsnappy.1.dylib" "$LIB_DIR/libsnappy.1.dylib"
-          install_name_tool -id "@rpath/libz.1.dylib" "$LIB_DIR/libz.1.dylib"
+          install_name_tool -id "@rpath/$TARGET_LIB_FILE_NAME" "$TARGET_LIB"
+          install_name_tool -id "@rpath/libsnappy.1.dylib" "$TARGET_DIR/libsnappy.1.dylib"
+          install_name_tool -id "@rpath/libz.1.dylib" "$TARGET_DIR/libz.1.dylib"
 
-          for lib in $LIB_DIR/*; do
+          for lib in $TARGET_DIR/*; do
             otool -L "$lib"
           done
 
