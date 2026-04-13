@@ -74,6 +74,12 @@ jobs:
         with:
           vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
 
+      - name: Install .NET SDKs
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            10.0.x
+
       - name: Check rocksdb version
         shell: bash
         run: |
@@ -101,6 +107,7 @@ jobs:
         shell: bash
         run: |
           vcpkg install rocksdb[snappy,zlib] --triplet=${{ matrix.triplet }} --overlay-triplets=vcpkg-overlays/triplets
+          find vcpkg/installed/${{ matrix.triplet }}
 
       - name: Copy to runtimes
         shell: bash
