@@ -53,6 +53,7 @@ runs:
           exit 1
         fi
 
+        ROCKSDB_VERSION_MAJOR="${ROCKSDB_VERSION_VCPKG%%.*}"
         ROCKSDB_ZLIB_MAJOR="${ZLIB_VERSION_VCPKG%%.*}"
         ROCKSDB_SNAPPY_MAJOR="${SNAPPY_VERSION_VCPKG%%.*}"
 
@@ -74,7 +75,7 @@ runs:
         esac
 
         echo "ROCKSDB_VERSION=$ROCKSDB_VERSION_CSPROJ" | tee -a $GITHUB_ENV
-        echo "ROCKSDB_VERSION_MAJOR=${ROCKSDB_VERSION_CSPROJ%%.*}" | tee -a $GITHUB_ENV
+        echo "ROCKSDB_VERSION_MAJOR=$ROCKSDB_VERSION_MAJOR" | tee -a $GITHUB_ENV
         echo "ROCKSDB_ZLIB_MAJOR=$ROCKSDB_ZLIB_MAJOR" | tee -a $GITHUB_ENV
         echo "ROCKSDB_SNAPPY_MAJOR=$ROCKSDB_SNAPPY_MAJOR" | tee -a $GITHUB_ENV
         echo "ROCKSDB_LIBRARY_FILES=$ROCKSDB_LIBRARY_FILES" | tee -a $GITHUB_ENV
@@ -90,30 +91,30 @@ runs:
     - name: Copy to runtimes
       shell: bash
       run: |
-        echo "::group::Copying RocksDb libraries to runtimes"
         mkdir -p RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native
         cp -L vcpkg/installed/${{ inputs.runtimeId }}/${ROCKSDB_LIBRARY_FILES} RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/
-        echo "::endgroup::"
 
     - name: Post-process Linux native binaries
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        echo "::group::Post-processing Linux native binaries"
         set -x
 
+        echo "BEFORE:"
+        ldd RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/*
+        
         # Patch librocksdb.so to have an RPATH of $ORIGIN, which allows it to find its dependencies in the same folder
         # without needing absolute paths. This is crucial for Linux where the dynamic linker
         # does not search the executable directory by default.
         patchelf --set-rpath '$ORIGIN' "RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/librocksdb.so.$ROCKSDB_VERSION_MAJOR"
 
+        echo "AFTER:"
         # Check for missing dependencies using ldd. If any "not found" entries are present, fail the build.
         ldd RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/* | tee ldd_output.txt
         if grep -q "not found" ldd_output.txt; then
           echo "Error: Missing dependencies detected in Linux binaries!"
           exit 1
         fi
-        echo "::endgroup::"
 
     - name: Post-process macOS native binaries
       if: runner.os == 'macOS'
@@ -125,6 +126,12 @@ runs:
         TARGET_LIB_FILE_NAME="librocksdb.$ROCKSDB_VERSION_MAJOR.dylib"
         TARGET_LIB="$TARGET_DIR/$TARGET_LIB_FILE_NAME"
 
+        echo "BEFORE:"
+        for lib in $TARGET_DIR/*; do
+          otool -L "$lib"
+        done
+
+        echo "AFTER:"
         # Dynamically find and fix Snappy dependency. Search for 'libsnappy.1.' followed by versioning
         OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.$ROCKSDB_SNAPPY_MAJOR\.[0-9.]*dylib" | head -n 1)
         if [ ! -z "$OLD_SNAPPY" ]; then
