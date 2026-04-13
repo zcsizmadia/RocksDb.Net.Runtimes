@@ -31,6 +31,7 @@ jobs:
             os: ubuntu-latest
             container: alpine:latest
             triplet: x64-linux-musl-dynamic-release
+            vcpkg_force: 1
             lib_files: lib/{librocksdb.so.11,libz.so.1,libsnappy.so.1}
 
           # - platform: linux-musl-arm64
@@ -105,6 +106,8 @@ jobs:
 
       - name: Build rocksdb
         shell: bash
+        env:
+          VCPKG_FORCE_SYSTEM_BINARIES: ${{ matrix.vcpkg_force || 0}}
         run: |
           vcpkg install rocksdb[snappy,zlib] --triplet=${{ matrix.triplet }} --overlay-triplets=vcpkg-overlays/triplets
           find vcpkg/installed/${{ matrix.triplet }}
