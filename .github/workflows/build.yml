@@ -1,57 +1,54 @@
-name: RocksDb.Net.Runtimes
+name: Build
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  release:
-    types: [ published ]
 
 jobs:
   build-rocksdb:
     strategy:
       fail-fast: false
       #max-parallel: 1
-      matrix:
-        #platform: [linux-x64, linux-arm64, windows-x64, windows-arm64, macos-x64, macos-arm64]
-        platform: [windows-x64]
+      matrix: &platforms_matrix
+        platform: [linux-x64, linux-arm64, windows-x64, windows-arm64, macos-x64, macos-arm64]
         include:
-          # - platform: linux-x64
-          #   os: ubuntu-latest
-          #   triplet: x64-linux-dynamic
-          #   lib_file: lib/librocksdb.so
-          #   runtime_arch: linux-x64
+          - platform: linux-x64
+            os: ubuntu-latest
+            triplet: x64-linux-dynamic-release
+            lib_files: lib/{librocksdb.so.11,libz.so.1,libsnappy.so.1}
+            runtime_arch: linux-x64
 
-          # - platform: linux-arm64
-          #   os: ubuntu-24.04-arm
-          #   triplet: arm64-linux-dynamic
-          #   lib_file: lib/librocksdb.so
-          #   runtime_arch: linux-arm64
+          - platform: linux-arm64
+            os: ubuntu-24.04-arm
+            triplet: arm64-linux-dynamic-release
+            lib_files: lib/{librocksdb.so.11,libz.so.1,libsnappy.so.1}
+            runtime_arch: linux-arm64
 
           - platform: windows-x64
             os: windows-latest
-            triplet: x64-windows
-            lib_file: bin/rocksdb.dll
+            triplet: x64-windows-release
+            lib_files: "bin/{rocksdb-shared.dll,zlib1.dll,snappy.dll}"
             runtime_arch: win-x64
 
-          # - platform: windows-arm64
-          #   os: windows-11-arm
-          #   triplet: arm64-windows
-          #   lib_file: bin/librocksdb.dll
-          #   runtime_arch: win-arm64
+          - platform: windows-arm64
+            os: windows-11-arm
+            triplet: arm64-windows-release
+            lib_files: "bin/{rocksdb-shared.dll,zlib1.dll,snappy.dll}"
+            runtime_arch: win-arm64
 
-          # - platform: macos-x64
-          #   os: macos-latest
-          #   triplet: x64-osx-dynamic
-          #   lib_file: lib/librocksdb.dylib
-          #   runtime_arch: osx-x64
+          - platform: macos-x64
+            os: macos-latest
+            triplet: x64-osx-dynamic-release
+            lib_files: lib/{librocksdb.11.dylib,libz.1.dylib,libsnappy.1.dylib}
+            runtime_arch: osx-x64
 
-          # - platform: macos-arm64
-          #   os: macos-latest
-          #   triplet: arm64-osx-dynamic
-          #   lib_file: lib/librocksdb.dylib
-          #   runtime_arch: osx-arm64
+          - platform: macos-arm64
+            os: macos-latest
+            triplet: arm64-osx-dynamic-release
+            lib_files: lib/{librocksdb.11.dylib,libz.1.dylib,libsnappy.1.dylib}
+            runtime_arch: osx-arm64
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -60,25 +57,92 @@ jobs:
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: "81e3c888ef717a026eb57bb2f3cb0dbd30246271"
+          vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
 
-      - name: Build RocksDb
+      - name: Check rocksdb version
         shell: bash
         run: |
-          vcpkg install rocksdb:${{ matrix.triplet }}
+          # Extract rocksdb version from csproj
+          ROCKSDB_VERSION_CSPROJ="$(dotnet msbuild RocksDb.Net.Runtimes/ -getProperty:RocksDbVersion -nologo -v:q | tr -d '\r' | xargs)"
+          echo "Version from csproj: $ROCKSDB_VERSION_CSPROJ"
+
+          # Extract version from vcpkg.json
+          ROCKSDB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/rocksdb/vcpkg.json)
+          echo "Version from vcpkg.json: $ROCKSDB_VERSION_VCPKG"
+
+          # Check if ROCKSDB_VERSION_VCPKG is the same as ROCKSDB_VERSION_CSPROJ
+          if [[ "$ROCKSDB_VERSION_VCPKG" != "$ROCKSDB_VERSION_CSPROJ" ]]; then
+            echo "Version mismatch! Tag version ($ROCKSDB_VERSION_VCPKG) does not match csproj version ($ROCKSDB_VERSION_CSPROJ)."
+            exit 1
+          fi
+
+          echo "ROCKSDB_VERSION=$ROCKSDB_VERSION_CSPROJ" >> $GITHUB_ENV
+          echo "ROCKSDB_VERSION_MAJOR=${ROCKSDB_VERSION_CSPROJ%%.*}" >> $GITHUB_ENV
+
+          echo "ROCKSDB_VERSION=$ROCKSDB_VERSION_CSPROJ"
+          echo "ROCKSDB_VERSION_MAJOR=${ROCKSDB_VERSION_CSPROJ%%.*}"
+
+      - name: Build rocksdb
+        shell: bash
+        run: |
+          vcpkg install rocksdb[snappy,zlib] --triplet=${{ matrix.triplet }} --overlay-triplets=vcpkg-overlays/triplets
 
       - name: Copy to runtimes
         shell: bash
         run: |
-          find vcpkg/installed
-          mkdir -p runtimes/${{ matrix.runtime_arch }}/native
-          cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_file }} runtimes/${{ matrix.runtime_arch }}/native/
+          mkdir -p RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native
+          cp -L vcpkg/installed/${{ matrix.triplet }}/${{ matrix.lib_files }} RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native/
+
+      - name: Post-process Linux native binaries
+        if: runner.os == 'Linux'
+        run: |
+          # Patch librocksdb.so to have an RPATH of $ORIGIN, which allows it to find its dependencies in the same folder
+          # without needing absolute paths. This is crucial for Linux where the dynamic linker
+          # does not search the executable directory by default.
+          patchelf --set-rpath '$ORIGIN' "RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native/librocksdb.so.$ROCKSDB_VERSION_MAJOR"
+
+          # Check for missing dependencies using ldd. If any "not found" entries are present, fail the build.
+          ldd RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native/* | tee ldd_output.txt
+          if grep -q "not found" ldd_output.txt; then
+            echo "Error: Missing dependencies detected in Linux binaries!"
+            exit 1
+          fi
+
+      - name: Post-process macOS native binaries
+        if: runner.os == 'macOS'
+        run: |
+          TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ matrix.runtime_arch }}/native"
+          TARGET_LIB_FILE_NAME="librocksdb.$ROCKSDB_VERSION_MAJOR.dylib"
+          TARGET_LIB="$TARGET_DIR/$TARGET_LIB_FILE_NAME"
+
+          # Dynamically find and fix Snappy dependency. Search for 'libsnappy.1.' followed by versioning
+          OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.1\.[0-9.]*dylib" | head -n 1)
+          if [ ! -z "$OLD_SNAPPY" ]; then
+            install_name_tool -change "$OLD_SNAPPY" "@loader_path/libsnappy.1.dylib" "$TARGET_LIB"
+          fi
+
+          # Dynamically find and fix Zlib dependency. Search for 'libz.1.' followed by versioning
+          OLD_ZLIB=$(otool -L "$TARGET_LIB" | grep -E -o "@rpath/libz\.1\.[0-9.]*dylib" | head -n 1)
+          if [ ! -z "$OLD_ZLIB" ]; then
+            install_name_tool -change "$OLD_ZLIB" "@loader_path/libz.1.dylib" "$TARGET_LIB"
+          fi
+
+          # Standardize internal IDs (Self-Identity)
+          # This ensures the files identify as the names we expect
+
+          install_name_tool -id "@rpath/$TARGET_LIB_FILE_NAME" "$TARGET_LIB"
+          install_name_tool -id "@rpath/libsnappy.1.dylib" "$TARGET_DIR/libsnappy.1.dylib"
+          install_name_tool -id "@rpath/libz.1.dylib" "$TARGET_DIR/libz.1.dylib"
+
+          for lib in $TARGET_DIR/*; do
+            otool -L "$lib"
+          done
 
       - name: Upload native library artifact
         uses: actions/upload-artifact@v7
         with:
           name: runtimes-${{ matrix.platform }}
-          path: runtimes
+          path: RocksDb.Net.Runtimes/runtimes
 
   build-nupkg:
     needs: [build-rocksdb]
@@ -97,13 +161,12 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: runtimes-*
-          path: runtimes
+          path: RocksDb.Net.Runtimes/runtimes
           merge-multiple: true
 
       - name: Pack NuGet package
         shell: bash
         run: |
-          ls -lR runtimes
           dotnet pack -c Release -o nupkgs
 
       - name: Upload NuGet package artifact
@@ -112,7 +175,34 @@ jobs:
           name: nuget-package
           path: nupkgs/*.nupkg
 
-      # Publish to NuGet.org only on release events
-      - name: Publish to NuGet.org
-        if: github.event_name == 'release'
-        run: dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+  validate-nupkg:
+    needs: [build-nupkg]
+    if: always() && needs.build-nupkg.result == 'success'
+    strategy:
+      fail-fast: false
+      #max-parallel: 1
+      matrix: *platforms_matrix
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install .NET SDKs
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Download NuGet package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: nuget-package
+          path: nupkgs
+
+      - name: Run NupkgValidator
+        shell: bash
+        run: |
+          cd NupkgValidator
+          dotnet restore --source ../nupkgs
+          dotnet build --no-restore
+          dotnet run --no-build

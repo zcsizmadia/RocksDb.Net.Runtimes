@@ -1,8 +1,0 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <NativeArch>linux-x64</NativeArch>
-    <NativeLib>librocksdb.so</NativeLib>
-  </PropertyGroup>
-
-  <Import Project="../RocksDb.Net.Runtime.csproj.template" />
-</Project>
