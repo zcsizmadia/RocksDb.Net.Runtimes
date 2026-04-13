@@ -1,21 +1,18 @@
 name: 'Validate NuPkg RocksDb'
 description: 'Validates the NuGet package for RocksDb by ensuring all native libraries are correctly included and functional.' 
 
-inputs:
-  runtimeId:
-    description: 'The runtime identifier (RID) to build for, e.g. linux-x64, win-x64, osx-arm64, etc.'
-    required: true
-
 runs:
   using: "composite"
   steps:
-    # Install Alpine packages needed for testing the native libraries.
-    # Note: icu is needed for dotnet
-    - name: Install Alpine packages
-      if: contains(inputs.runtimeId, 'linux-musl')
+    # Install packages needed for testing the native libraries.
+    - name: Install packages
       shell: sh
       run: |
-        apk add --no-cache bash icu
+        echo "::group::Installing packages"
+        if [ -f /etc/alpine-release ]; then
+          apk add --no-cache bash icu
+        fi
+        echo "::endgroup::"
 
     - name: Install .NET SDKs
       uses: actions/setup-dotnet@v5
@@ -32,7 +29,9 @@ runs:
     - name: Run NupkgValidator
       shell: bash
       run: |
+        echo "::group::Running NupkgValidator"
         cd NupkgValidator
         dotnet restore --source ../nupkgs
         dotnet build --no-restore
         dotnet run --no-build
+        echo "::endgroup::"

@@ -2,31 +2,27 @@ name: 'Build RocksDb'
 description: 'Builds the native RocksDb libraries for all supported platforms using vcpkg and uploads them as artifacts for use in packaging the NuGet.' 
 
 inputs:
-  vcpkgTriplet:
-    description: 'The vcpkg triplet to use for building, e.g. x64-linux-dynamic-release, arm64-linux-dynamic-release, etc.'
-    required: true
   runtimeId:
     description: 'The runtime identifier (RID) to build for, e.g. linux-x64, win-x64, osx-arm64, etc.'
-    required: true
-  libraryFiles:
-    description: 'The expected library files to be produced by the build, used for validation and copying to the runtimes folder.'
     required: true
 
 runs:
   using: "composite"
   steps:
-    # Install Alpine packages needed for building and testing the native libraries.
-    # Note: icu is needed for dotnet
-    - name: Install Alpine packages
-      if: contains(inputs.runtimeId, 'linux-musl')
+    # Install packages needed for building and testing the native libraries.
+    - name: Install packages
       shell: sh
       run: |
-        apk add --no-cache build-base cmake git ninja curl zip unzip tar bash icu pkgconf patchelf perl linux-headers
+        echo "::group::Installing packages"
+        if [ -f /etc/alpine-release ]; then
+          apk add --no-cache build-base cmake git ninja curl zip unzip tar bash icu pkgconf patchelf perl linux-headers
+        fi
+        echo "::endgroup::"
 
     - name: Install vcpkg
       uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
+      #with:
+      #  vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
 
     # Install .NET SDKs to extract the RocksDB version from the csproj file,
     # which is used to ensure the vcpkg version matches and to determine the expected library file names
@@ -39,13 +35,21 @@ runs:
     - name: Check RocksDb version
       shell: bash
       run: |
+        echo "::group::Checking RocksDb version"
+
         # Extract rocksdb version from csproj
         ROCKSDB_VERSION_CSPROJ="$(dotnet msbuild RocksDb.Net.Runtimes/ -getProperty:RocksDbVersion -nologo -v:q | tr -d '\r' | xargs)"
         echo "Version from csproj: $ROCKSDB_VERSION_CSPROJ"
 
         # Extract version from vcpkg.json
         ROCKSDB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/rocksdb/vcpkg.json)
-        echo "Version from vcpkg.json: $ROCKSDB_VERSION_VCPKG"
+        echo "RocksDb version from vcpkg.json: $ROCKSDB_VERSION_VCPKG"
+
+        SNAPPY_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/snappy/vcpkg.json)
+        echo "Snappy version from vcpkg.json: $SNAPPY_VERSION_VCPKG"
+
+        ZLIB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/zlib/vcpkg.json)
+        echo "Zlib version from vcpkg.json: $ZLIB_VERSION_VCPKG
 
         # Check if ROCKSDB_VERSION_VCPKG is the same as ROCKSDB_VERSION_CSPROJ
         if [[ "$ROCKSDB_VERSION_VCPKG" != "$ROCKSDB_VERSION_CSPROJ" ]]; then
@@ -53,30 +57,59 @@ runs:
           exit 1
         fi
 
-        echo "ROCKSDB_VERSION=$ROCKSDB_VERSION_CSPROJ" >> $GITHUB_ENV
-        echo "ROCKSDB_VERSION_MAJOR=${ROCKSDB_VERSION_CSPROJ%%.*}" >> $GITHUB_ENV
+        ROCKSDB_ZLIB_MAJOR="${ZLIB_VERSION_VCPKG%%.*}"
+        ROCKSDB_SNAPPY_MAJOR="${SNAPPY_VERSION_VCPKG%%.*}"
 
-        echo "ROCKSDB_VERSION=$ROCKSDB_VERSION_CSPROJ"
-        echo "ROCKSDB_VERSION_MAJOR=${ROCKSDB_VERSION_CSPROJ%%.*}"
+        # Determine the expected library files based on the platform.
+        case "${{ inputs.runtimeId }}" in
+          "win-*")
+            ROCKSDB_LIBRARY_FILES="bin/{rocksdb-shared.dll,zlib1.dll,snappy.dll}"
+            ;;
+          "linux-*")
+            ROCKSDB_LIBRARY_FILES="lib/{librocksdb.so.$ROCKSDB_VERSION_MAJOR,libz.so.$ROCKSDB_ZLIB_MAJOR,libsnappy.so.$ROCKSDB_SNAPPY_MAJOR}"
+            ;;
+          "osx-*")
+            ROCKSDB_LIBRARY_FILES="lib/{librocksdb.$ROCKSDB_VERSION_MAJOR.dylib,libz.$ROCKSDB_ZLIB_MAJOR.dylib,libsnappy.$ROCKSDB_SNAPPY_MAJOR.dylib}"
+            ;;
+          *)
+            echo "Unsupported platform: ${{ inputs.runtimeId }}"
+            exit 1
+            ;;
+        esac
+
+        echo "ROCKSDB_VERSION=$ROCKSDB_VERSION_CSPROJ" | tee -a $GITHUB_ENV
+        echo "ROCKSDB_VERSION_MAJOR=${ROCKSDB_VERSION_CSPROJ%%.*}" | tee -a $GITHUB_ENV
+        echo "ROCKSDB_ZLIB_MAJOR=$ROCKSDB_ZLIB_MAJOR" | tee -a $GITHUB_ENV
+        echo "ROCKSDB_SNAPPY_MAJOR=$ROCKSDB_SNAPPY_MAJOR" | tee -a $GITHUB_ENV
+        echo "ROCKSDB_LIBRARY_FILES=$ROCKSDB_LIBRARY_FILES" | tee -a $GITHUB_ENV
+
+        echo "::endgroup::"
 
     - name: Build rocksdb
       shell: bash
       env:
         VCPKG_FORCE_SYSTEM_BINARIES: ${{ contains(inputs.runtimeId, 'musl') && 1 || 0}}
       run: |
-        vcpkg install rocksdb[snappy,zlib] --triplet=${{ inputs.vcpkgTriplet }} --overlay-triplets=vcpkg-overlays/triplets
-        find vcpkg/installed/${{ inputs.vcpkgTriplet }}
+        echo "::group::Building RocksDb with vcpkg"
+        vcpkg install rocksdb[snappy,zlib] --triplet=${{ inputs.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets
+        find vcpkg/installed/${{ inputs.runtimeId }}
+        echo "::endgroup::"
 
     - name: Copy to runtimes
       shell: bash
       run: |
+        echo "::group::Copying RocksDb libraries to runtimes"
         mkdir -p RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native
-        cp -L vcpkg/installed/${{ inputs.vcpkgTriplet }}/${{ inputs.libraryFiles }} RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/
+        cp -L vcpkg/installed/${{ inputs.runtimeId }}/${ROCKSDB_LIBRARY_FILES} RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/
+        echo "::endgroup::"
 
     - name: Post-process Linux native binaries
       if: runner.os == 'Linux'
       shell: bash
       run: |
+        echo "::group::Post-processing Linux native binaries"
+        set -x
+
         # Patch librocksdb.so to have an RPATH of $ORIGIN, which allows it to find its dependencies in the same folder
         # without needing absolute paths. This is crucial for Linux where the dynamic linker
         # does not search the executable directory by default.
@@ -88,37 +121,42 @@ runs:
           echo "Error: Missing dependencies detected in Linux binaries!"
           exit 1
         fi
+        echo "::endgroup::"
 
     - name: Post-process macOS native binaries
       if: runner.os == 'macOS'
       shell: bash
       run: |
+        echo "::group::Post-processing macOS native binaries"
+        set -x
+
         TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
         TARGET_LIB_FILE_NAME="librocksdb.$ROCKSDB_VERSION_MAJOR.dylib"
         TARGET_LIB="$TARGET_DIR/$TARGET_LIB_FILE_NAME"
 
         # Dynamically find and fix Snappy dependency. Search for 'libsnappy.1.' followed by versioning
-        OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.1\.[0-9.]*dylib" | head -n 1)
+        OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.$ROCKSDB_SNAPPY_MAJOR\.[0-9.]*dylib" | head -n 1)
         if [ ! -z "$OLD_SNAPPY" ]; then
-          install_name_tool -change "$OLD_SNAPPY" "@loader_path/libsnappy.1.dylib" "$TARGET_LIB"
+          install_name_tool -change "$OLD_SNAPPY" "@loader_path/libsnappy.$ROCKSDB_SNAPPY_MAJOR.dylib" "$TARGET_LIB"
         fi
 
         # Dynamically find and fix Zlib dependency. Search for 'libz.1.' followed by versioning
-        OLD_ZLIB=$(otool -L "$TARGET_LIB" | grep -E -o "@rpath/libz\.1\.[0-9.]*dylib" | head -n 1)
+        OLD_ZLIB=$(otool -L "$TARGET_LIB" | grep -E -o "@rpath/libz\.$ROCKSDB_ZLIB_MAJOR\.[0-9.]*dylib" | head -n 1)
         if [ ! -z "$OLD_ZLIB" ]; then
-          install_name_tool -change "$OLD_ZLIB" "@loader_path/libz.1.dylib" "$TARGET_LIB"
+          install_name_tool -change "$OLD_ZLIB" "@loader_path/libz.$ROCKSDB_ZLIB_MAJOR.dylib" "$TARGET_LIB"
         fi
 
         # Standardize internal IDs (Self-Identity)
         # This ensures the files identify as the names we expect
 
         install_name_tool -id "@rpath/$TARGET_LIB_FILE_NAME" "$TARGET_LIB"
-        install_name_tool -id "@rpath/libsnappy.1.dylib" "$TARGET_DIR/libsnappy.1.dylib"
-        install_name_tool -id "@rpath/libz.1.dylib" "$TARGET_DIR/libz.1.dylib"
+        install_name_tool -id "@rpath/libsnappy.$ROCKSDB_SNAPPY_MAJOR.dylib" "$TARGET_DIR/libsnappy.$ROCKSDB_SNAPPY_MAJOR.dylib"
+        install_name_tool -id "@rpath/libz.$ROCKSDB_ZLIB_MAJOR.dylib" "$TARGET_DIR/libz.$ROCKSDB_ZLIB_MAJOR.dylib"
 
         for lib in $TARGET_DIR/*; do
           otool -L "$lib"
         done
+        echo "::endgroup::"
 
     - name: Upload native library artifact
       uses: actions/upload-artifact@v7
