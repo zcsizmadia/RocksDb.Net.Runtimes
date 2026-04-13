@@ -1,0 +1,45 @@
+name: 'Validate NuPkg RocksDb'
+description: 'Validates the NuGet package for RocksDb by ensuring all native libraries are correctly included and functional.' 
+
+inputs:
+  runtimeId:
+    description: 'The runtime identifier (RID) to build for, e.g. linux-x64, win-x64, osx-arm64, etc.'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    # action/checkout fails on Alpine Arm64 without this fix
+    - name: Fix Alpine arm64 compatibility
+      if: inputs.runtimeId == 'linux-musl-arm64'
+      uses: laverdet/alpine-arm64@v1
+
+    # Install Alpine packages needed for testing the native libraries.
+    # Note: icu is needed for dotnet
+    - name: Install Alpine packages
+      if: contains(inputs.runtimeId, 'linux-musl')
+      shell: ash
+      run: |
+        apk add --no-cache bash icu
+
+    - uses: actions/checkout@v6
+
+    - name: Install .NET SDKs
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: |
+          10.0.x
+
+    - name: Download NuGet package artifacts
+      uses: actions/download-artifact@v8
+      with:
+        pattern: nuget-package
+        path: nupkgs
+
+    - name: Run NupkgValidator
+      shell: bash
+      run: |
+        cd NupkgValidator
+        dotnet restore --source ../nupkgs
+        dotnet build --no-restore
+        dotnet run --no-build
