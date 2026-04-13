@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: &platform-matrix
-        platform: [win-x64, win-arm64, linux-x64, linux-arm64, osx-x64, osx-arm64]
+        runtimeId: [win-x64, win-arm64, linux-x64, linux-arm64, osx-x64, osx-arm64]
         include:
           - runtimeId: win-x64
             os: windows-latest
@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: &platform-matrix-musl
-        platform: [linux-musl-x64, linux-musl-arm64]
+        runtimeId: [linux-musl-x64, linux-musl-arm64]
         include:
           - runtimeId: linux-musl-x64
             os: ubuntu-latest
