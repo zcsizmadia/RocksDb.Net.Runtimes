@@ -2,9 +2,6 @@ name: 'Build RocksDb'
 description: 'Builds the native RocksDb libraries for all supported platforms using vcpkg and uploads them as artifacts for use in packaging the NuGet.' 
 
 inputs:
-  vcpkgGitCommitId:
-    description: 'The specific vcpkg git commit ID to use for the build. This ensures consistent builds by using a known state of vcpkg.'
-    required: true
   vcpkgTriplet:
     description: 'The vcpkg triplet to use for building, e.g. x64-linux-dynamic-release, arm64-linux-dynamic-release, etc.'
     required: true
@@ -29,7 +26,7 @@ runs:
     - name: Install vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: "${{ inputs.vcpkgGitCommitId }}"
+        vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
 
     # Install .NET SDKs to extract the RocksDB version from the csproj file,
     # which is used to ensure the vcpkg version matches and to determine the expected library file names
@@ -65,7 +62,7 @@ runs:
     - name: Build rocksdb
       shell: bash
       env:
-        VCPKG_FORCE_SYSTEM_BINARIES: ${{ contains(inputs.runtimeId, 'musl') || 0}}
+        VCPKG_FORCE_SYSTEM_BINARIES: ${{ contains(inputs.runtimeId, 'musl') && 1 || 0}}
       run: |
         vcpkg install rocksdb[snappy,zlib] --triplet=${{ inputs.vcpkgTriplet }} --overlay-triplets=vcpkg-overlays/triplets
         find vcpkg/installed/${{ inputs.vcpkgTriplet }}

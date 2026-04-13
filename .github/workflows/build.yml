@@ -45,9 +45,10 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
+      - uses: actions/checkout@v6
+
       - uses: ./.github/actions/buildRocksDb
         with:
-          vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
           vcpkgTriplet: ${{ matrix.triplet }}
           runtimeId: ${{ matrix.platform }}
           libraryFiles: ${{ matrix.lib_files }}          
@@ -80,7 +81,6 @@ jobs:
 
       - uses: ./.github/actions/buildRocksDb
         with:
-          vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
           vcpkgTriplet: ${{ matrix.triplet }}
           runtimeId: ${{ matrix.platform }}
           libraryFiles: ${{ matrix.lib_files }}
