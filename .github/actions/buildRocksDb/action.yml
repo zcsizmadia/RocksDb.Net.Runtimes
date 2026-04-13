@@ -35,7 +35,7 @@ runs:
       run: |
         # Extract rocksdb version from csproj
         ROCKSDB_VERSION_CSPROJ="$(dotnet msbuild RocksDb.Net.Runtimes/ -getProperty:RocksDbVersion -nologo -v:q | tr -d '\r' | xargs)"
-        echo "Version from csproj: $ROCKSDB_VERSION_CSPROJ"
+        echo "RocksDb version from csproj: $ROCKSDB_VERSION_CSPROJ"
 
         # Extract version from vcpkg.json
         ROCKSDB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/rocksdb/vcpkg.json)
@@ -45,11 +45,11 @@ runs:
         echo "Snappy version from vcpkg.json: $SNAPPY_VERSION_VCPKG"
 
         ZLIB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/zlib/vcpkg.json)
-        echo "Zlib version from vcpkg.json: $ZLIB_VERSION_VCPKG
+        echo "Zlib version from vcpkg.json: $ZLIB_VERSION_VCPKG"
 
         # Check if ROCKSDB_VERSION_VCPKG is the same as ROCKSDB_VERSION_CSPROJ
         if [[ "$ROCKSDB_VERSION_VCPKG" != "$ROCKSDB_VERSION_CSPROJ" ]]; then
-          echo "Version mismatch! Tag version ($ROCKSDB_VERSION_VCPKG) does not match csproj version ($ROCKSDB_VERSION_CSPROJ)."
+          echo "RocksDb version mismatch! Tag version ($ROCKSDB_VERSION_VCPKG) does not match csproj version ($ROCKSDB_VERSION_CSPROJ)."
           exit 1
         fi
 
