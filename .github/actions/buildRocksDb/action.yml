@@ -13,16 +13,14 @@ runs:
     - name: Install packages
       shell: sh
       run: |
-        echo "::group::Installing packages"
         if [ -f /etc/alpine-release ]; then
           apk add --no-cache build-base cmake git ninja curl zip unzip tar bash icu pkgconf patchelf perl linux-headers
         fi
-        echo "::endgroup::"
 
     - name: Install vcpkg
       uses: lukka/run-vcpkg@v11
-      #with:
-      #  vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
+      with:
+        vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
 
     # Install .NET SDKs to extract the RocksDB version from the csproj file,
     # which is used to ensure the vcpkg version matches and to determine the expected library file names
@@ -35,8 +33,6 @@ runs:
     - name: Check RocksDb version
       shell: bash
       run: |
-        echo "::group::Checking RocksDb version"
-
         # Extract rocksdb version from csproj
         ROCKSDB_VERSION_CSPROJ="$(dotnet msbuild RocksDb.Net.Runtimes/ -getProperty:RocksDbVersion -nologo -v:q | tr -d '\r' | xargs)"
         echo "Version from csproj: $ROCKSDB_VERSION_CSPROJ"
@@ -83,17 +79,13 @@ runs:
         echo "ROCKSDB_SNAPPY_MAJOR=$ROCKSDB_SNAPPY_MAJOR" | tee -a $GITHUB_ENV
         echo "ROCKSDB_LIBRARY_FILES=$ROCKSDB_LIBRARY_FILES" | tee -a $GITHUB_ENV
 
-        echo "::endgroup::"
-
-    - name: Build rocksdb
+    - name: Build RocksDb native libraries using vcpkg
       shell: bash
       env:
         VCPKG_FORCE_SYSTEM_BINARIES: ${{ contains(inputs.runtimeId, 'musl') && 1 || 0}}
       run: |
-        echo "::group::Building RocksDb with vcpkg"
         vcpkg install rocksdb[snappy,zlib] --triplet=${{ inputs.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets
         find vcpkg/installed/${{ inputs.runtimeId }}
-        echo "::endgroup::"
 
     - name: Copy to runtimes
       shell: bash
@@ -127,7 +119,6 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        echo "::group::Post-processing macOS native binaries"
         set -x
 
         TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
@@ -156,7 +147,6 @@ runs:
         for lib in $TARGET_DIR/*; do
           otool -L "$lib"
         done
-        echo "::endgroup::"
 
     - name: Upload native library artifact
       uses: actions/upload-artifact@v7

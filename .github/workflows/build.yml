@@ -7,6 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
+  # Build RocksDb native libraries for all platforms in parallel. (non-musl)
   build-rocksdb:
     strategy:
       fail-fast: false
@@ -39,6 +40,8 @@ jobs:
         with:
           runtimeId: ${{ matrix.runtimeId }}
 
+  # Build RocksDb native libraries for musl-based Linux platforms in parallel
+  # Musl-based Linux platforms require a container with Alpine, so we build them in a separate job using an Alpine container
   build-rocksdb-musl:
     strategy:
       fail-fast: false
@@ -65,6 +68,7 @@ jobs:
         with:
           runtimeId: ${{ matrix.runtimeId }}
 
+  # Build NuGet package after all native libraries have been built successfully
   build-nupkg:
     needs: [build-rocksdb, build-rocksdb-musl]
     runs-on: ubuntu-latest
@@ -96,6 +100,7 @@ jobs:
           name: nuget-package
           path: nupkgs/*.nupkg
 
+  # Validate the NuGet package by running tests that load the native libraries and perform basic operations to ensure they are working correctly. (non-musl)
   validate-nupkg:
     needs: [build-nupkg]
     if: always() && needs.build-nupkg.result == 'success'
@@ -109,6 +114,7 @@ jobs:
 
       - uses: ./.github/actions/validateNupkg
 
+  # Validate the NuGet package by running tests that load the native libraries and perform basic operations to ensure they are working correctly. (musl)
   validate-nupkg-musl:
     needs: [build-nupkg]
     if: always() && needs.build-nupkg.result == 'success'

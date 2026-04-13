@@ -8,11 +8,9 @@ runs:
     - name: Install packages
       shell: sh
       run: |
-        echo "::group::Installing packages"
         if [ -f /etc/alpine-release ]; then
           apk add --no-cache bash icu
         fi
-        echo "::endgroup::"
 
     - name: Install .NET SDKs
       uses: actions/setup-dotnet@v5
@@ -29,9 +27,7 @@ runs:
     - name: Run NupkgValidator
       shell: bash
       run: |
-        echo "::group::Running NupkgValidator"
         cd NupkgValidator
         dotnet restore --source ../nupkgs
         dotnet build --no-restore
         dotnet run --no-build
-        echo "::endgroup::"
