@@ -13,7 +13,7 @@ runs:
     # Note: icu is needed for dotnet
     - name: Install Alpine packages
       if: contains(inputs.runtimeId, 'linux-musl')
-      shell: ash
+      shell: sh
       run: |
         apk add --no-cache bash icu
 
