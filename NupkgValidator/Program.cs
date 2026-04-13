@@ -79,26 +79,20 @@ class Program
             return IntPtr.Zero; // Fallback to default loading logic
         }
 
-        // Determine Architecture/OS/Extension
-
-        string os;
+        string rid = RuntimeInformation.RuntimeIdentifier;
         string libraryNameExt;
-        string arch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            os = "win";
             libraryNameExt = $"{LibName}.11.dll";
 
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            os = "osx";
             libraryNameExt = $"{LibName}.11.dylib";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            os = "linux";
             libraryNameExt = $"{LibName}.so.11";
         }
         else
@@ -107,14 +101,14 @@ class Program
         }
 
         // Attempt to load the library from the assembly location directory
-        string libPath = Path.Combine(Path.GetDirectoryName(assembly.Location) ?? AppContext.BaseDirectory, "runtimes", $"{os}-{arch}", "native", libraryNameExt);
+        string libPath = Path.Combine(Path.GetDirectoryName(assembly.Location) ?? AppContext.BaseDirectory, "runtimes", rid, "native", libraryNameExt);
         if (File.Exists(libPath))
         {
             return NativeLibrary.Load(libPath);
         }
 
         // Attempt to load the library from the application base directory
-        libPath = Path.Combine(AppContext.BaseDirectory, "runtimes", $"{os}-{arch}", "native", libraryNameExt);
+        libPath = Path.Combine(AppContext.BaseDirectory, "runtimes", rid, "native", libraryNameExt);
         if (File.Exists(libPath))
         {
             return NativeLibrary.Load(libPath);

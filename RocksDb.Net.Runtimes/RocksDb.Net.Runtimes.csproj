@@ -60,6 +60,16 @@
     <Content Include="runtimes/linux-arm64/native/librocksdb.so.11" Pack="true" PackagePath="runtimes/linux-arm64/native/" />
     <Content Include="runtimes/linux-arm64/native/libz.so.1" Pack="true" PackagePath="runtimes/linux-arm64/native/" />
     <Content Include="runtimes/linux-arm64/native/libsnappy.so.1" Pack="true" PackagePath="runtimes/linux-arm64/native/" />
+
+    <!-- linux-musl-x64 -->
+    <Content Include="runtimes/linux-musl-x64/native/librocksdb.so.11" Pack="true" PackagePath="runtimes/linux-musl-x64/native/" />
+    <Content Include="runtimes/linux-musl-x64/native/libz.so.1" Pack="true" PackagePath="runtimes/linux-musl-x64/native/" />
+    <Content Include="runtimes/linux-musl-x64/native/libsnappy.so.1" Pack="true" PackagePath="runtimes/linux-musl-x64/native/" />
+
+    <!-- linux-musl-arm64 -->
+    <Content Include="runtimes/linux-musl-arm64/native/librocksdb.so.11" Pack="true" PackagePath="runtimes/linux-musl-arm64/native/" />
+    <Content Include="runtimes/linux-musl-arm64/native/libz.so.1" Pack="true" PackagePath="runtimes/linux-musl-arm64/native/" />
+    <Content Include="runtimes/linux-musl-arm64/native/libsnappy.so.1" Pack="true" PackagePath="runtimes/linux-musl-arm64/native/" />
   </ItemGroup>
 
   <!-- osx -->
