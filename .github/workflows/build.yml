@@ -62,13 +62,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container || 'null' }}
     steps:
+
+      - name: Fix Alpine Arm64 Compatibility
+        if: matrix.platform == 'linux-musl-arm64'
+        #uses: [laverdet/alpine-arm64@v1](https://github.com/laverdet/alpine-arm64)
+        uses: laverdet/alpine-arm64@v1
+    
       - uses: actions/checkout@v6
 
       - name: Install packages
         run: |
           # Alpine
           if [ -f /etc/os-release ] && grep -q "ID=alpine" /etc/os-release; then
-            apk add --no-cache build-base cmake git ninja curl zip unzip tar bash pkgconf patchelf perl linux-headers
+            apk add --no-cache build-base cmake git ninja curl zip unzip tar bash icu pkgconf patchelf perl linux-headers
           fi
 
       - name: Install vcpkg
