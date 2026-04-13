@@ -19,6 +19,7 @@ class Program
         // Register the custom DLL resolver for the current assembly
         NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), ResolveRuntimeDll);
     }
+
     static int Main(string[] args)
     {
         // Database path can be specified as a command-line argument, defaulting to "rocksdb" if not provided
@@ -104,6 +105,7 @@ class Program
         string libPath = Path.Combine(Path.GetDirectoryName(assembly.Location) ?? AppContext.BaseDirectory, "runtimes", rid, "native", libraryNameExt);
         if (File.Exists(libPath))
         {
+            Console.WriteLine($"Found native library {libPath}");
             return NativeLibrary.Load(libPath);
         }
 
@@ -111,6 +113,7 @@ class Program
         libPath = Path.Combine(AppContext.BaseDirectory, "runtimes", rid, "native", libraryNameExt);
         if (File.Exists(libPath))
         {
+            Console.WriteLine($"Found native library {libPath}");
             return NativeLibrary.Load(libPath);
         }
 
@@ -118,6 +121,7 @@ class Program
         libPath = Path.Combine(AppContext.BaseDirectory, libraryNameExt);
         if (File.Exists(libPath))
         {
+            Console.WriteLine($"Found native library {libPath}");
             return NativeLibrary.Load(libPath);
         }
 
