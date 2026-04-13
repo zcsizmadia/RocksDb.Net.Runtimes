@@ -68,7 +68,7 @@ jobs:
       - name: Install Alpine tools
         if: contains(matrix.platform, 'musl')
         run: |
-          apk add --no-cache nodejs npm build-base cmake git ninja curl zip unzip tar bash
+          apk add --no-cache nodejs npm build-base cmake git ninja curl zip unzip tar bash pkgconf
 
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
