@@ -58,13 +58,13 @@ runs:
 
         # Determine the expected library files based on the platform.
         case "${{ inputs.runtimeId }}" in
-          "win-*")
+          win-*)
             ROCKSDB_LIBRARY_FILES="bin/{rocksdb-shared.dll,zlib1.dll,snappy.dll}"
             ;;
-          "linux-*")
+          linux-*)
             ROCKSDB_LIBRARY_FILES="lib/{librocksdb.so.$ROCKSDB_VERSION_MAJOR,libz.so.$ROCKSDB_ZLIB_MAJOR,libsnappy.so.$ROCKSDB_SNAPPY_MAJOR}"
             ;;
-          "osx-*")
+          osx-*)
             ROCKSDB_LIBRARY_FILES="lib/{librocksdb.$ROCKSDB_VERSION_MAJOR.dylib,libz.$ROCKSDB_ZLIB_MAJOR.dylib,libsnappy.$ROCKSDB_SNAPPY_MAJOR.dylib}"
             ;;
           *)
