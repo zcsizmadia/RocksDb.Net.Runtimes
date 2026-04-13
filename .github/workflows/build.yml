@@ -71,6 +71,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     container: alpine:latest
     steps:
+      # action/checkout fails on Alpine Arm64 without this fix
+      - name: Fix Alpine arm64 compatibility
+        if: matrix.platform == 'linux-musl-arm64'
+        uses: laverdet/alpine-arm64@v1
+
+      - uses: actions/checkout@v6
+
       - uses: ./.github/actions/buildRocksDb
         with:
           vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
@@ -119,6 +126,8 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
+      - uses: actions/checkout@v6
+
       - uses: ./.github/actions/validateNupkg
 
   validate-nupkg-musl:
@@ -131,4 +140,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     container: alpine:latest
     steps:
+      # action/checkout fails on Alpine Arm64 without this fix
+      - name: Fix Alpine arm64 compatibility
+        if: matrix.platform == 'linux-musl-arm64'
+        uses: laverdet/alpine-arm64@v1
+
+      - uses: actions/checkout@v6
+
       - uses: ./.github/actions/validateNupkg
