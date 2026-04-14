@@ -72,6 +72,8 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       run: |
+        set -x
+
         TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
 
         # Create the target directory for the native libraries in the runtimes folder
@@ -89,6 +91,7 @@ runs:
           [ -e "$lib" ] || continue
           echo "Setting RPATH -> ORIGIN for $lib"
           patchelf --set-rpath '$ORIGIN' "$lib"
+          readelf -d "$lib"
         done
 
         # Verify the RPATH is set correctly in the logs
@@ -123,10 +126,18 @@ runs:
         # 2. Fix Dependencies (LC_LOAD_DYLIB)
         for lib in *.dylib; do
           echo "Processing $lib..."
+
+          # Add the search path so @rpath resolves to the current folder
+          install_name_tool -add_rpath "@loader_path/" "$lib" 2>/dev/null || true
           
           # Get all @rpath dependencies, excluding the library's own ID
           # We use 'awk' simply to get the first column (the path)
-          otool -L "$lib" | grep "@rpath/" | grep -v "$lib" | awk '{print $1}' | while read -r OLD_DEP; do
+          DEPS=$(otool -L "$lib" | grep "@rpath/" | grep -v "$lib" | awk '{print $1}') || true
+          if [ -z "$DEPS" ]; then
+            echo "  No @rpath dependencies found for $lib"
+          fi
+
+          for OLD_DEP in $DEPS; do
             
             # Extract the "Major Version" name from the path
             # e.g., @rpath/libsnappy.1.2.2.dylib -> libsnappy.1.dylib
@@ -138,9 +149,6 @@ runs:
               install_name_tool -change "$OLD_DEP" "$NEW_DEP" "$lib" || true
             fi
           done
-
-          # 3. Add the search path so @rpath resolves to the current folder
-          install_name_tool -add_rpath "@loader_path/" "$lib" 2>/dev/null || true
         done
 
         # # Fix Internal IDs (LC_ID_DYLIB) 
