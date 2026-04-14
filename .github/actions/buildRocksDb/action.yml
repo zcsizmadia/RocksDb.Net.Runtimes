@@ -108,9 +108,9 @@ runs:
 
           linux*)
             # Check the copied .so files using ldd to ensure they have the expected version numbers in their names and correct dependencies
-            if ldd "$TARGET_DIR"/*.so* | grep "not found"; then
-              echo "Missing dependencies for Linux libraries:"
-              ldd "$TARGET_DIR"/*.so*
+            ldd "$TARGET_DIR"/*.so* | tee "/tmp/ldd_output.log"
+            if grep -q "not found" /tmp/ldd_output.log; then
+              echo "Missing dependencies!"
               exit 1
             fi
             ;;
