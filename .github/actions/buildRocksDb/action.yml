@@ -70,19 +70,27 @@ runs:
 
         case "${{ inputs.runtimeId }}" in
           win-*)
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/rocksdb_shared.dll "$TARGET_DIR"
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/snappy.dll "$TARGET_DIR"
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/zlib1.dll "$TARGET_DIR"
+            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/rocksdb_shared.dll "$TARGET_DIR"
+            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/snappy.dll "$TARGET_DIR"
+            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/zlib1.dll "$TARGET_DIR"
+
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/*.dll "$TARGET_DIR"
             ;;
           linux-*)
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/librocksdb.so.$ROCKSDB_VERSION_MAJOR "$TARGET_DIR"
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libsnappy.so.1 "$TARGET_DIR"
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libz.so.1 "$TARGET_DIR"
+            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/librocksdb.so.$ROCKSDB_VERSION_MAJOR "$TARGET_DIR"
+            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libsnappy.so.1 "$TARGET_DIR"
+            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libz.so.1 "$TARGET_DIR"
+
+            # Dynamically find and copy all .so files that match the expected naming pattern (e.g. librocksdb.so.MAJOR, libsnappy.so.MAJOR, libz.so.MAJOR)
+            find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} "$TARGET_DIR"
             ;;
           osx-*)
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/librocksdb.$ROCKSDB_VERSION_MAJOR.dylib "$TARGET_DIR"
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libsnappy.1.dylib "$TARGET_DIR"
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libz.1.dylib "$TARGET_DIR"
+            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/librocksdb.$ROCKSDB_VERSION_MAJOR.dylib "$TARGET_DIR"
+            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libsnappy.1.dylib "$TARGET_DIR"
+            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libz.1.dylib "$TARGET_DIR"
+
+            # Dynamically find and copy all .dylib files that match the expected naming pattern (e.g. librocksdb.MAJOR.dylib, libsnappy.MAJOR.dylib, libz.MAJOR.dylib)
+            find -E vcpkg/installed/${{ inputs.runtimeId }}/lib -maxdepth 1 -regex "/lib[^.]+\.[0-9]+\.dylib$" -exec cp -L {} "$TARGET_DIR" \;
             ;;
           *)
             echo "Unsupported platform: ${{ inputs.runtimeId }}"
@@ -141,7 +149,7 @@ runs:
         #   otool -L "$lib"
         # done
 
-        for lib in $TARGET_DIR/*.dylib; do
+        for lib in "RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/*.dylib"; do
            otool -L "$lib"
         done
 
