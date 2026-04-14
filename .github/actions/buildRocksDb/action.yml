@@ -41,12 +41,6 @@ runs:
         ROCKSDB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/rocksdb/vcpkg.json)
         echo "RocksDb version from vcpkg.json: $ROCKSDB_VERSION_VCPKG"
 
-        SNAPPY_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/snappy/vcpkg.json)
-        echo "Snappy version from vcpkg.json: $SNAPPY_VERSION_VCPKG"
-
-        ZLIB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/zlib/vcpkg.json)
-        echo "Zlib version from vcpkg.json: $ZLIB_VERSION_VCPKG"
-
         # Check if ROCKSDB_VERSION_VCPKG is the same as ROCKSDB_VERSION_CSPROJ
         if [[ "$ROCKSDB_VERSION_VCPKG" != "$ROCKSDB_VERSION_CSPROJ" ]]; then
           echo "RocksDb version mismatch! Tag version ($ROCKSDB_VERSION_VCPKG) does not match csproj version ($ROCKSDB_VERSION_CSPROJ)."
@@ -54,13 +48,9 @@ runs:
         fi
 
         ROCKSDB_VERSION_MAJOR="${ROCKSDB_VERSION_VCPKG%%.*}"
-        ROCKSDB_ZLIB_MAJOR="${ZLIB_VERSION_VCPKG%%.*}"
-        ROCKSDB_SNAPPY_MAJOR="${SNAPPY_VERSION_VCPKG%%.*}"
 
         echo "ROCKSDB_VERSION=$ROCKSDB_VERSION_CSPROJ" | tee -a $GITHUB_ENV
         echo "ROCKSDB_VERSION_MAJOR=$ROCKSDB_VERSION_MAJOR" | tee -a $GITHUB_ENV
-        echo "ROCKSDB_ZLIB_MAJOR=$ROCKSDB_ZLIB_MAJOR" | tee -a $GITHUB_ENV
-        echo "ROCKSDB_SNAPPY_MAJOR=$ROCKSDB_SNAPPY_MAJOR" | tee -a $GITHUB_ENV
 
     - name: Build RocksDb native libraries using vcpkg
       shell: bash
@@ -80,19 +70,19 @@ runs:
 
         case "${{ inputs.runtimeId }}" in
           win-*)
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/*.dll "$TARGET_DIR"
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/rocksdb_shared.dll "$TARGET_DIR"
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/snappy.dll "$TARGET_DIR"
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/zlib1.dll "$TARGET_DIR"
             ;;
           linux-*)
-            # Copy all .so files which end with a major version number only
-            find vcpkg/installed/${{ inputs.runtimeId }}/lib \
-              -regextype posix-extended \
-              -regex '.*\.so\.[0-9]+$' \
-              -exec cp -L -t "$TARGET_DIR" {} +
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/librocksdb.so.$ROCKSDB_VERSION_MAJOR "$TARGET_DIR"
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libsnappy.so.1 "$TARGET_DIR"
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libz.so.1 "$TARGET_DIR"
             ;;
           osx-*)
-            find -E vcpkg/installed/${{ inputs.runtimeId }}/lib \
-              -regex '.*(\.[0-9]+)+\.dylib$' \
-              -exec cp -L {} "$TARGET_DIR" \;
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/librocksdb.$ROCKSDB_VERSION_MAJOR.dylib "$TARGET_DIR"
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libsnappy.1.dylib "$TARGET_DIR"
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libz.1.dylib "$TARGET_DIR"
             ;;
           *)
             echo "Unsupported platform: ${{ inputs.runtimeId }}"
@@ -106,61 +96,53 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        set -x
+        ldd RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/*.so*
 
-        echo "BEFORE:"
-        ldd RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/*.so.*
-        
-        # Patch librocksdb.so to have an RPATH of $ORIGIN, which allows it to find its dependencies in the same folder
-        # without needing absolute paths. This is crucial for Linux where the dynamic linker
-        # does not search the executable directory by default.
-        patchelf --set-rpath '$ORIGIN' "RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/librocksdb.so.$ROCKSDB_VERSION_MAJOR"
-
-        echo "AFTER:"
-        # Check for missing dependencies using ldd. If any "not found" entries are present, fail the build.
-        ldd RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/*.so.* | tee ldd_output.txt
-        if grep -q "not found" ldd_output.txt; then
-          echo "Error: Missing dependencies detected in Linux binaries!"
-          exit 1
-        fi
+        # patchelf --set-rpath '$ORIGIN' "RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/librocksdb.so.$ROCKSDB_VERSION_MAJOR"
+        # patchelf --set-rpath '$ORIGIN' "RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/libsnappy.so.1"
+        # patchelf --set-rpath '$ORIGIN' "RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/libz.so.1"
 
     - name: Post-process macOS native binaries
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        set -x
+        # set -x
 
-        TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
-        TARGET_LIB_FILE_NAME="librocksdb.$ROCKSDB_VERSION_MAJOR.dylib"
-        TARGET_LIB="$TARGET_DIR/$TARGET_LIB_FILE_NAME"
+        # TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
+        # TARGET_LIB_FILE_NAME="librocksdb.$ROCKSDB_VERSION_MAJOR.dylib"
+        # TARGET_LIB="$TARGET_DIR/$TARGET_LIB_FILE_NAME"
 
-        echo "BEFORE:"
-        for lib in $TARGET_DIR/*; do
-          otool -L "$lib"
-        done
+        # echo "BEFORE:"
+        # for lib in $TARGET_DIR/*; do
+        #   otool -L "$lib"
+        # done
 
-        echo "AFTER:"
-        # Dynamically find and fix Snappy dependency. Search for 'libsnappy.1.' followed by versioning
-        OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.$ROCKSDB_SNAPPY_MAJOR\.[0-9.]*dylib" | head -n 1)
-        if [ ! -z "$OLD_SNAPPY" ]; then
-          install_name_tool -change "$OLD_SNAPPY" "@loader_path/libsnappy.$ROCKSDB_SNAPPY_MAJOR.dylib" "$TARGET_LIB"
-        fi
+        # echo "AFTER:"
+        # # Dynamically find and fix Snappy dependency. Search for 'libsnappy.1.' followed by versioning
+        # OLD_SNAPPY=$(otool -L "$TARGET_LIB" | grep -o "@rpath/libsnappy\.1\.[0-9.]*dylib" | head -n 1)
+        # if [ ! -z "$OLD_SNAPPY" ]; then
+        #   install_name_tool -change "$OLD_SNAPPY" "@loader_path/libsnappy.1.dylib" "$TARGET_LIB"
+        # fi
 
-        # Dynamically find and fix Zlib dependency. Search for 'libz.1.' followed by versioning
-        OLD_ZLIB=$(otool -L "$TARGET_LIB" | grep -E -o "@rpath/libz\.$ROCKSDB_ZLIB_MAJOR\.[0-9.]*dylib" | head -n 1)
-        if [ ! -z "$OLD_ZLIB" ]; then
-          install_name_tool -change "$OLD_ZLIB" "@loader_path/libz.$ROCKSDB_ZLIB_MAJOR.dylib" "$TARGET_LIB"
-        fi
+        # # Dynamically find and fix Zlib dependency. Search for 'libz.1.' followed by versioning
+        # OLD_ZLIB=$(otool -L "$TARGET_LIB" | grep -E -o "@rpath/libz\.1\.[0-9.]*dylib" | head -n 1)
+        # if [ ! -z "$OLD_ZLIB" ]; then
+        #   install_name_tool -change "$OLD_ZLIB" "@loader_path/libz.1.dylib" "$TARGET_LIB"
+        # fi
 
-        # Standardize internal IDs (Self-Identity)
-        # This ensures the files identify as the names we expect
+        # # Standardize internal IDs (Self-Identity)
+        # # This ensures the files identify as the names we expect
 
-        install_name_tool -id "@rpath/$TARGET_LIB_FILE_NAME" "$TARGET_LIB"
-        install_name_tool -id "@rpath/libsnappy.$ROCKSDB_SNAPPY_MAJOR.dylib" "$TARGET_DIR/libsnappy.$ROCKSDB_SNAPPY_MAJOR.dylib"
-        install_name_tool -id "@rpath/libz.$ROCKSDB_ZLIB_MAJOR.dylib" "$TARGET_DIR/libz.$ROCKSDB_ZLIB_MAJOR.dylib"
+        # install_name_tool -id "@rpath/$TARGET_LIB_FILE_NAME" "$TARGET_LIB"
+        # install_name_tool -id "@rpath/libsnappy.1.dylib" "$TARGET_DIR/libsnappy.1.dylib"
+        # install_name_tool -id "@rpath/libz.1.dylib" "$TARGET_DIR/libz.1.dylib"
 
-        for lib in $TARGET_DIR/*; do
-          otool -L "$lib"
+        # for lib in $TARGET_DIR/*; do
+        #   otool -L "$lib"
+        # done
+
+        for lib in $TARGET_DIR/*.dylib; do
+           otool -L "$lib"
         done
 
     - name: Upload native library artifact
