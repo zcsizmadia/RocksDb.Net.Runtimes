@@ -82,6 +82,17 @@ runs:
         # Dynamically find and copy all .so files that match the expected naming pattern (e.g. librocksdb.so.MAJOR, libsnappy.so.MAJOR, libz.so.MAJOR)
         find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} "$TARGET_DIR"
 
+        for lib in *.so.*; do
+          [ -e "$lib" ] || continue
+          readelf -d "$lib"
+        done
+
+        # Verify the RPATH is set correctly in the logs
+        ldd *.so*
+
+        exit 0
+
+
         cd "$TARGET_DIR"
 
         # Patchelf to set RPATH to $ORIGIN for all .so files in the target directory.
@@ -114,6 +125,13 @@ runs:
 
         # Dynamically find and copy all .dylib files that match the expected naming pattern (e.g. librocksdb.MAJOR.dylib, libsnappy.MAJOR.dylib, libz.MAJOR.dylib)
         find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "*.dylib" | grep -E '/lib[^.]+\.[0-9]+\.dylib$' | xargs -I {} cp -L {} "$TARGET_DIR"
+
+        for lib in "$TARGET_DIR"/*.dylib; do
+          [ -e "$lib" ] || continue
+          otool -L "$lib"
+        done
+
+        exit 0
 
         cd "$TARGET_DIR"
 
@@ -151,6 +169,11 @@ runs:
           done
         done
 
+        for lib in *.dylib; do
+          [ -e "$lib" ] || continue
+          otool -L "$lib"
+        done
+
         # # Fix Internal IDs (LC_ID_DYLIB) 
         # # Makes every lib identify as @rpath/filename.dylib
         # for lib in *.dylib; do
@@ -167,11 +190,6 @@ runs:
         #     echo install_name_tool -change "$OLD_DEP" "$NEW_DEP" "$lib" || true
         #   done
         # done
-
-        for lib in *.dylib; do
-          [ -e "$lib" ] || continue
-          otool -L "$lib"
-        done
 
         # # 2. Fix Dependency References (LC_LOAD_DYLIB) 
         # for lib in *.dylib; do
