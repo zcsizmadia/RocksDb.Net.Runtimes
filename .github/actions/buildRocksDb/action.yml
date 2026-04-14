@@ -64,9 +64,11 @@ runs:
         # Create the target directory for the native libraries in the runtimes folder
         mkdir -p "$TARGET_DIR"
 
+        cd "$TARGET_DIR"
+
         # Copy all .dll files from vcpkg to the target directory. We use cp -L to ensure we copy the actual files and not just the symlinks,
         # which is important for Windows where the .dll files are the actual binaries.
-        cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/*.dll "$TARGET_DIR"
+        cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/*.dll .
 
     - name: Copy Linux native binaries to runtimes
       if: runner.os == 'Linux'
@@ -77,21 +79,23 @@ runs:
         # Create the target directory for the native libraries in the runtimes folder
         mkdir -p "$TARGET_DIR"
 
+        cd "$TARGET_DIR"
+
         # Dynamically find and copy all .so files that match the expected naming pattern (e.g. librocksdb.so.MAJOR, libsnappy.so.MAJOR, libz.so.MAJOR)
-        find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} "$TARGET_DIR/"
+        find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} .
 
         # Patchelf to set RPATH to $ORIGIN for all .so files in the target directory.
         # This ensures that the native libraries will look for their dependencies in the same directory,
         # which is necessary for them to work correctly when loaded from the NuGet package.
-        for lib in "$TARGET_DIR"/*.so.*; do
+        for lib in *.so.*; do
           [ -e "$lib" ] || continue
-          echo "Setting RPATH for $(basename "$lib")"
+          echo "Setting RPATH -> ORIGIN for $lib"
           patchelf --set-rpath '$ORIGIN' "$lib"
         done
 
         # Verify the RPATH is set correctly in the logs
-        ldd "$TARGET_DIR"/*.so*
-        if ldd "$TARGET_DIR"/*.so* | grep "not found"; then
+        ldd *.so*
+        if ldd *.so* | grep "not found"; then
           echo "Error: Some dependencies are not found. Check the above ldd output for details."
           exit 1
         fi
@@ -107,43 +111,82 @@ runs:
         # Create the target directory for the native libraries in the runtimes folder
         mkdir -p "$TARGET_DIR"
 
-        # Dynamically find and copy all .dylib files that match the expected naming pattern (e.g. librocksdb.MAJOR.dylib, libsnappy.MAJOR.dylib, libz.MAJOR.dylib)
-        find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "*.dylib" | grep -E '/lib[^.]+\.[0-9]+\.dylib$' | xargs -I {} cp -L {} "$TARGET_DIR/"
-
         cd "$TARGET_DIR"
 
-        # 1. Standardize internal IDs
-        # Makes every lib identify as @rpath/filename.dylib
+        # Dynamically find and copy all .dylib files that match the expected naming pattern (e.g. librocksdb.MAJOR.dylib, libsnappy.MAJOR.dylib, libz.MAJOR.dylib)
+        find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "*.dylib" | grep -E '/lib[^.]+\.[0-9]+\.dylib$' | xargs -I {} cp -L {} .
+
+        # 1. Standardize IDs (Self-Identity)
+        # Every library will now identify as exactly @rpath/libname.MAJOR.dylib
         for lib in *.dylib; do
-          [ -e "$lib" ] || continue
           install_name_tool -id "@rpath/$lib" "$lib"
         done
 
+        # 2. Fix Dependencies (LC_LOAD_DYLIB)
+        for lib in *.dylib; do
+          echo "Processing $lib..."
+          
+          # Get all @rpath dependencies, excluding the library's own ID
+          # We use 'awk' simply to get the first column (the path)
+          otool -L "$lib" | grep "@rpath/" | grep -v "$lib" | awk '{print $1}' | while read -r OLD_DEP; do
+            
+            # Extract the "Major Version" name from the path
+            # e.g., @rpath/libsnappy.1.2.2.dylib -> libsnappy.1.dylib
+            LIB_BASE_NAME=$(echo "$OLD_DEP" | sed -E 's/.*(lib[^.]+\.[0-9]+).*/\1.dylib/')
+            NEW_DEP="@rpath/$LIB_BASE_NAME"
+            
+            if [ "$OLD_DEP" != "$NEW_DEP" ]; then
+              echo "  Linking: $OLD_DEP -> $NEW_DEP"
+              install_name_tool -change "$OLD_DEP" "$NEW_DEP" "$lib" || true
+            fi
+          done
+
+          # 3. Add the search path so @rpath resolves to the current folder
+          install_name_tool -add_rpath "@loader_path/" "$lib" 2>/dev/null || true
+        done
+
+        # # Fix Internal IDs (LC_ID_DYLIB) 
+        # # Makes every lib identify as @rpath/filename.dylib
+        # for lib in *.dylib; do
+        #   install_name_tool -id "@rpath/$lib" "$lib"
+        # done
+
+        # # Fix Dependency References (LC_LOAD_DYLIB) 
+        # for lib in *.dylib; do
+        #   DEPS=$(grep "@rpath" test.txt | grep -v "@rpath/$(basename $lib)" | awk 'match($0, /(@rpath\/[^.]+\.[0-9]+\.[0-9]+\.[0-9]+\.dylib)/, arr) {print arr[1]}')
+
+        #   for OLD_DEP in $DEPS; do
+        #     NEW_DEP=$(echo $OLD_DEP | awk 'match($0, /(@rpath\/[^.]+\.[0-9]+)/, arr) {print arr[1], "dylib"}')
+        #     echo "  Linking $lib: $OLD_DEP -> $NEW_DEP"
+        #     echo install_name_tool -change "$OLD_DEP" "$NEW_DEP" "$lib" || true
+        #   done
+        # done
+
         for lib in *.dylib; do
           [ -e "$lib" ] || continue
           otool -L "$lib"
         done
 
-        # 3. Standardize Dependencies
-        for lib in *.dylib; do
-          # Get only the lines that actually contain @rpath
-          DEPS=$(otool -L "$lib" | grep "@rpath/" | grep -v "$(basename "$lib")" | awk '{print $1}')
+        # # 2. Fix Dependency References (LC_LOAD_DYLIB) 
+        # for lib in *.dylib; do
+        #   # Get only the lines that actually contain @rpath
+        #   DEPS=$(otool -L "$lib" | grep "@rpath/" | grep -v "$(basename "$lib")" | awk '{print $1}')
           
-          for OLD_DEP in $DEPS; do
-            NEW_DEP="@rpath/$(basename "$OLD_DEP")"
-            echo "  Linking $lib -> $NEW_DEP"
-            # Use || true to prevent the action from failing if a single link can't be updated
-            install_name_tool -change "$OLD_DEP" "$NEW_DEP" "$lib" || true
-          done
+        #   for OLD_DEP in $DEPS; do
+        #     NEW_DEP="@rpath/$(basename "$OLD_DEP")"
+        #     echo "  Linking $lib -> $NEW_DEP"
+        #     # Use || true to prevent the action from failing if a single link can't be updated
+        #     install_name_tool -change "$OLD_DEP" "$NEW_DEP" "$lib" || true
+        #   done
 
-          # Add loader_path so it actually finds the @rpath files
-          install_name_tool -add_rpath "@loader_path/" "$lib" 2>/dev/null || true
-        done
+        #   # Add loader_path so it actually finds the @rpath files
+        #   install_name_tool -add_rpath "@loader_path/" "$lib" 2>/dev/null || true
+        # done
 
-        # Log the final state of the libraries for debugging purposes
-        for lib in *.dylib; do
-          otool -L "$lib"
-        done
+        # # Log the final state of the libraries for debugging purposes
+        # for lib in *.dylib; do
+        #   otool -L "$lib"
+        # done
 
         # set -x
 
