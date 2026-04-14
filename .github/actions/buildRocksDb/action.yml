@@ -64,11 +64,9 @@ runs:
         # Create the target directory for the native libraries in the runtimes folder
         mkdir -p "$TARGET_DIR"
 
-        cd "$TARGET_DIR"
-
         # Copy all .dll files from vcpkg to the target directory. We use cp -L to ensure we copy the actual files and not just the symlinks,
         # which is important for Windows where the .dll files are the actual binaries.
-        cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/*.dll .
+        cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/*.dll "$TARGET_DIR"
 
     - name: Copy Linux native binaries to runtimes
       if: runner.os == 'Linux'
@@ -79,10 +77,10 @@ runs:
         # Create the target directory for the native libraries in the runtimes folder
         mkdir -p "$TARGET_DIR"
 
-        cd "$TARGET_DIR"
-
         # Dynamically find and copy all .so files that match the expected naming pattern (e.g. librocksdb.so.MAJOR, libsnappy.so.MAJOR, libz.so.MAJOR)
-        find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} .
+        find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} "$TARGET_DIR"
+
+        cd "$TARGET_DIR"
 
         # Patchelf to set RPATH to $ORIGIN for all .so files in the target directory.
         # This ensures that the native libraries will look for their dependencies in the same directory,
@@ -111,10 +109,10 @@ runs:
         # Create the target directory for the native libraries in the runtimes folder
         mkdir -p "$TARGET_DIR"
 
-        cd "$TARGET_DIR"
-
         # Dynamically find and copy all .dylib files that match the expected naming pattern (e.g. librocksdb.MAJOR.dylib, libsnappy.MAJOR.dylib, libz.MAJOR.dylib)
-        find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "*.dylib" | grep -E '/lib[^.]+\.[0-9]+\.dylib$' | xargs -I {} cp -L {} .
+        find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "*.dylib" | grep -E '/lib[^.]+\.[0-9]+\.dylib$' | xargs -I {} cp -L {} "$TARGET_DIR"
+
+        cd "$TARGET_DIR"
 
         # 1. Standardize IDs (Self-Identity)
         # Every library will now identify as exactly @rpath/libname.MAJOR.dylib
