@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AssemblyMetadata Include="RocksDbVersion" Value="$(RocksDbVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="RocksDb.Net.Runtimes" Version="$(Version)" />
   </ItemGroup>
 

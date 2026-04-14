@@ -52,7 +52,7 @@ class Program
 
     // Native methods and library loading logic
 
-    const string LibName = "rocksdb";
+    const string LibName = "librocksdb";
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern nint rocksdb_open(
@@ -83,9 +83,11 @@ class Program
         string rid = RuntimeInformation.RuntimeIdentifier;
         string libraryNameExt;
 
+        
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            libraryNameExt = $"{LibName}-shared.dll";
+            libraryNameExt = $"{LibName}.11.dll";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
