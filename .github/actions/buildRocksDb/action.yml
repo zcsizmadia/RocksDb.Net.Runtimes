@@ -60,7 +60,8 @@ runs:
         vcpkg install rocksdb[snappy,zlib] --triplet=${{ inputs.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets
         find vcpkg/installed/${{ inputs.runtimeId }}
 
-    - name: Copy to runtimes
+    - name: Copy Windows native libraries to runtimes
+      if: runner.os == 'Windows'
       shell: bash
       run: |
         TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
@@ -68,43 +69,21 @@ runs:
         # Create the target directory for the native libraries in the runtimes folder
         mkdir -p "$TARGET_DIR"
 
-        case "${{ inputs.runtimeId }}" in
-          win-*)
-            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/rocksdb-shared.dll "$TARGET_DIR"
-            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/snappy.dll "$TARGET_DIR"
-            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/zlib1.dll "$TARGET_DIR"
+        # Copy all .dll files from vcpkg to the target directory. We use cp -L to ensure we copy the actual files and not just the symlinks,
+        # which is important for Windows where the .dll files are the actual binaries.
+        cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/*.dll "$TARGET_DIR"
 
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/*.dll "$TARGET_DIR"
-            ;;
-          linux-*)
-            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/librocksdb.so.$ROCKSDB_VERSION_MAJOR "$TARGET_DIR"
-            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libsnappy.so.1 "$TARGET_DIR"
-            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libz.so.1 "$TARGET_DIR"
-
-            # Dynamically find and copy all .so files that match the expected naming pattern (e.g. librocksdb.so.MAJOR, libsnappy.so.MAJOR, libz.so.MAJOR)
-            find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} "$TARGET_DIR/"
-            ;;
-          osx-*)
-            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/librocksdb.$ROCKSDB_VERSION_MAJOR.dylib "$TARGET_DIR"
-            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libsnappy.1.dylib "$TARGET_DIR"
-            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/lib/libz.1.dylib "$TARGET_DIR"
-
-            # Dynamically find and copy all .dylib files that match the expected naming pattern (e.g. librocksdb.MAJOR.dylib, libsnappy.MAJOR.dylib, libz.MAJOR.dylib)
-            find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "*.dylib" | grep -E '/lib[^.]+\.[0-9]+\.dylib$' | xargs -I {} cp -L {} "$TARGET_DIR/"
-            ;;
-          *)
-            echo "Unsupported platform: ${{ inputs.runtimeId }}"
-            exit 1
-            ;;
-        esac
-
-        ls -l RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/
-
-    - name: Post-process Linux native binaries
+    - name: Copy Linux native binaries to runtimes
       if: runner.os == 'Linux'
       shell: bash
       run: |
         TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
+
+        # Create the target directory for the native libraries in the runtimes folder
+        mkdir -p "$TARGET_DIR"
+
+        # Dynamically find and copy all .so files that match the expected naming pattern (e.g. librocksdb.so.MAJOR, libsnappy.so.MAJOR, libz.so.MAJOR)
+        find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} "$TARGET_DIR/"
 
         # Patchelf to set RPATH to $ORIGIN for all .so files in the target directory.
         # This ensures that the native libraries will look for their dependencies in the same directory,
@@ -118,45 +97,82 @@ runs:
         # Verify the RPATH is set correctly in the logs
         ldd "$TARGET_DIR"/librocksdb.so*
 
-    - name: Post-process macOS native binaries
+    - name: Copy macOS native binaries to runtimes
       if: runner.os == 'macOS'
       shell: bash
       run: |
         TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
 
-        # 1. Standardize all internal IDs (Self-Identity)
-        # This makes every lib identify as @rpath/filename.dylib
+        # Create the target directory for the native libraries in the runtimes folder
+        mkdir -p "$TARGET_DIR"
+
+        # Dynamically find and copy all .dylib files that match the expected naming pattern (e.g. librocksdb.MAJOR.dylib, libsnappy.MAJOR.dylib, libz.MAJOR.dylib)
+        find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "*.dylib" | grep -E '/lib[^.]+\.[0-9]+\.dylib$' | xargs -I {} cp -L {} "$TARGET_DIR/"
+
+        # 1. Standardize internal IDs
+        # Makes every lib identify as @rpath/filename.dylib
         for lib in "$TARGET_DIR"/*.dylib; do
           [ -e "$lib" ] || continue
-          LIB_NAME=$(basename "$lib")
-          echo "Setting ID for $LIB_NAME"
-          install_name_tool -id "@rpath/$LIB_NAME" "$lib"
+          echo "Setting ID for $(basename "$lib") -> $NEW_ID"
+          install_name_tool -id "@rpath/$(basename "$lib")" "$lib"
         done
 
-        # 2. Dynamically fix dependencies between libraries
-        # We look for any dependency currently starting with @rpath and 
-        # change it to @loader_path so they find each other in the same folder.
+        # 2. Fix search paths
+        # This tells every dylib to look in its own folder for any @rpath dependency
         for lib in "$TARGET_DIR"/*.dylib; do
           [ -e "$lib" ] || continue
-          echo "Processing dependencies for $(basename "$lib")"
           
-          # List dependencies, find those using @rpath (excluding self), and loop them
+          # Add the loader path to the RPATH list
+          # We use || true because it might already exist, and we don't want to fail
+          install_name_tool -add_rpath "@loader_path/" "$lib" 2>/dev/null || true
+          
+          # 3. Clean up vcpkg's absolute references to dependencies
+          # We find any dependency starting with '@rpath' and make sure it 
+          # points to the simple filename so our RPATH above can find it.
           otool -L "$lib" | grep "@rpath/" | grep -v "$(basename "$lib")" | awk '{print $1}' | while read -r OLD_DEP; do
-            # Extract the base name (e.g., libsnappy.1.dylib) from the complex path
-            # This handles cases like e.g. @rpath/libsnappy.1.1.10.dylib -> libsnappy.1.dylib
-            # as long as your copy step renamed the file to the major version.
-            DEP_BASE=$(basename "$OLD_DEP")
-            
-            # Check if we have a matching major-version file in our directory
-            # E.g. if libsnappy.1.1.10.dylib is requested, we map it to libsnappy.1.dylib
-            MATCHING_LIB=$(ls "$TARGET_DIR" | grep "${DEP_BASE%%.*}" | grep -E "\.[0-9]+\.dylib$" | head -n 1)
-            
-            if [ -n "$MATCHING_LIB" ]; then
-              echo "  Changing $OLD_DEP -> @loader_path/$MATCHING_LIB"
-              install_name_tool -change "$OLD_DEP" "@loader_path/$MATCHING_LIB" "$lib"
+            NEW_DEP="@rpath/$(basename "$OLD_DEP")"
+            if [ "$OLD_DEP" != "$NEW_DEP" ]; then
+              install_name_tool -change "$OLD_DEP" "$NEW_DEP" "$lib" || true
             fi
           done
         done
+
+        otool -L "$TARGET_DIR"/librocksdb.$ROCKSDB_VERSION_MAJOR.dylib
+
+        # # 1. Standardize all internal IDs (Self-Identity)
+        # # This makes every lib identify as @rpath/filename.dylib
+        # for lib in "$TARGET_DIR"/*.dylib; do
+        #   [ -e "$lib" ] || continue
+        #   LIB_NAME=$(basename "$lib")
+        #   echo "Setting ID for $LIB_NAME"
+        #   install_name_tool -id "@rpath/$LIB_NAME" "$lib"
+        # done
+
+        # # 2. Dynamically fix dependencies between libraries
+        # # We look for any dependency currently starting with @rpath and 
+        # # change it to @loader_path so they find each other in the same folder.
+        # for lib in "$TARGET_DIR"/*.dylib; do
+        #   [ -e "$lib" ] || continue
+        #   echo "Processing dependencies for $(basename "$lib")"
+          
+        #   # Get the library's own ID to ensure we don't try to "change" it as a dependency
+        #   CURRENT_ID=$(otool -D "$lib" | grep -v ":")
+
+        #   # List dependencies, exclude the library's own ID, and filter for @rpath
+        #   otool -L "$lib" | grep "@rpath/" | grep -v "$CURRENT_ID" | awk '{print $1}' | while read -r OLD_DEP; do
+        #     DEP_BASE=$(basename "$OLD_DEP")
+            
+        #     # Match the dependency to the major version files we copied
+        #     # This regex looks for the prefix (e.g., libsnappy) and the .MAJOR.dylib pattern
+        #     MATCHING_LIB=$(ls "$TARGET_DIR" | grep -E "^${DEP_BASE%%.*}\.[0-9]+\.dylib$" | head -n 1)
+            
+        #     if [ -n "$MATCHING_LIB" ] && [ "$OLD_DEP" != "@loader_path/$MATCHING_LIB" ]; then
+        #       echo "  Changing $OLD_DEP -> @loader_path/$MATCHING_LIB"
+        #       install_name_tool -change "$OLD_DEP" "@loader_path/$MATCHING_LIB" "$lib" || true
+        #     fi
+        #   done
+        # done
+
         # set -x
 
         # TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
@@ -192,9 +208,9 @@ runs:
         #   otool -L "$lib"
         # done
 
-        for lib in "RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/*.dylib"; do
-           otool -L "$lib"
-        done
+        # for lib in "RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/*.dylib"; do
+        #    otool -L "$lib"
+        # done
 
     - name: Upload native library artifact
       uses: actions/upload-artifact@v7
