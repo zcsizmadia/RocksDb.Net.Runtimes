@@ -57,28 +57,10 @@ runs:
         ROCKSDB_ZLIB_MAJOR="${ZLIB_VERSION_VCPKG%%.*}"
         ROCKSDB_SNAPPY_MAJOR="${SNAPPY_VERSION_VCPKG%%.*}"
 
-        # Determine the expected library files based on the platform.
-        case "${{ inputs.runtimeId }}" in
-          win-*)
-            ROCKSDB_LIBRARY_FILES="bin/{rocksdb-shared.dll,zlib1.dll,snappy.dll}"
-            ;;
-          linux-*)
-            ROCKSDB_LIBRARY_FILES="lib/{librocksdb.so.$ROCKSDB_VERSION_MAJOR,libz.so.$ROCKSDB_ZLIB_MAJOR,libsnappy.so.$ROCKSDB_SNAPPY_MAJOR}"
-            ;;
-          osx-*)
-            ROCKSDB_LIBRARY_FILES="lib/{librocksdb.$ROCKSDB_VERSION_MAJOR.dylib,libz.$ROCKSDB_ZLIB_MAJOR.dylib,libsnappy.$ROCKSDB_SNAPPY_MAJOR.dylib}"
-            ;;
-          *)
-            echo "Unsupported platform: ${{ inputs.runtimeId }}"
-            exit 1
-            ;;
-        esac
-
         echo "ROCKSDB_VERSION=$ROCKSDB_VERSION_CSPROJ" | tee -a $GITHUB_ENV
         echo "ROCKSDB_VERSION_MAJOR=$ROCKSDB_VERSION_MAJOR" | tee -a $GITHUB_ENV
         echo "ROCKSDB_ZLIB_MAJOR=$ROCKSDB_ZLIB_MAJOR" | tee -a $GITHUB_ENV
         echo "ROCKSDB_SNAPPY_MAJOR=$ROCKSDB_SNAPPY_MAJOR" | tee -a $GITHUB_ENV
-        echo "ROCKSDB_LIBRARY_FILES=$ROCKSDB_LIBRARY_FILES" | tee -a $GITHUB_ENV
 
     - name: Build RocksDb native libraries using vcpkg
       shell: bash
@@ -91,8 +73,32 @@ runs:
     - name: Copy to runtimes
       shell: bash
       run: |
+        # Create the target directory for the native libraries in the runtimes folder
         mkdir -p RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native
-        cp -L vcpkg/installed/${{ inputs.runtimeId }}/${ROCKSDB_LIBRARY_FILES} RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/
+
+        case "${{ inputs.runtimeId }}" in
+          win-*)
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/*.dll RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/
+            ;;
+          linux-*)
+            # Copy all .so files which end with a major version number only
+            find vcpkg/installed/${{ inputs.runtimeId }}/lib \
+              -regextype posix-extended \
+              -regex '.*\.so\.[0-9]+$' \
+              -exec cp -L -t RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/ {} +
+            ;;
+          osx-*)
+            find -E vcpkg/installed/${{ inputs.runtimeId }}/lib \
+              -regex '.*(\.[0-9]+)+\.dylib$' \
+              -exec cp -L {} RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/ \;
+            ;;
+          *)
+            echo "Unsupported platform: ${{ inputs.runtimeId }}"
+            exit 1
+            ;;
+        esac
+
+        ls -l RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/
 
     - name: Post-process Linux native binaries
       if: runner.os == 'Linux'
@@ -101,7 +107,7 @@ runs:
         set -x
 
         echo "BEFORE:"
-        ldd RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/*
+        ldd RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/*.so.*
         
         # Patch librocksdb.so to have an RPATH of $ORIGIN, which allows it to find its dependencies in the same folder
         # without needing absolute paths. This is crucial for Linux where the dynamic linker
@@ -110,7 +116,7 @@ runs:
 
         echo "AFTER:"
         # Check for missing dependencies using ldd. If any "not found" entries are present, fail the build.
-        ldd RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/* | tee ldd_output.txt
+        ldd RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/*.so.* | tee ldd_output.txt
         if grep -q "not found" ldd_output.txt; then
           echo "Error: Missing dependencies detected in Linux binaries!"
           exit 1
