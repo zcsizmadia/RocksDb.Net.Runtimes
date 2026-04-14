@@ -70,7 +70,7 @@ runs:
 
         case "${{ inputs.runtimeId }}" in
           win-*)
-            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/rocksdb_shared.dll "$TARGET_DIR"
+            # cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/rocksdb-shared.dll "$TARGET_DIR"
             # cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/snappy.dll "$TARGET_DIR"
             # cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/zlib1.dll "$TARGET_DIR"
 

@@ -85,7 +85,7 @@ class Program
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            libraryNameExt = $"{LibName}_shared.dll";
+            libraryNameExt = $"{LibName}-shared.dll";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
