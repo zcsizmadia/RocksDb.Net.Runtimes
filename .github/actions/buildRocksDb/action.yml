@@ -104,18 +104,59 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        # Patcelf to set RPATH to $ORIGIN for all .so files in the target directory.
+        TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
+
+        # Patchelf to set RPATH to $ORIGIN for all .so files in the target directory.
         # This ensures that the native libraries will look for their dependencies in the same directory,
         # which is necessary for them to work correctly when loaded from the NuGet package.
-        find "RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native" -maxdepth 1 -name "*.so*" -type f -exec patchelf --set-rpath '$ORIGIN' {} +
+        for lib in "$TARGET_DIR"/*.so.*; do
+          [ -e "$lib" ] || continue
+          echo "Setting RPATH for $(basename "$lib")"
+          patchelf --set-rpath '$ORIGIN' "$lib"
+        done
 
         # Verify the RPATH is set correctly in the logs
-        ldd RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/librocksdb.so*
+        ldd "$TARGET_DIR"/librocksdb.so*
 
     - name: Post-process macOS native binaries
       if: runner.os == 'macOS'
       shell: bash
       run: |
+        TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
+
+        # 1. Standardize all internal IDs (Self-Identity)
+        # This makes every lib identify as @rpath/filename.dylib
+        for lib in "$TARGET_DIR"/*.dylib; do
+          [ -e "$lib" ] || continue
+          LIB_NAME=$(basename "$lib")
+          echo "Setting ID for $LIB_NAME"
+          install_name_tool -id "@rpath/$LIB_NAME" "$lib"
+        done
+
+        # 2. Dynamically fix dependencies between libraries
+        # We look for any dependency currently starting with @rpath and 
+        # change it to @loader_path so they find each other in the same folder.
+        for lib in "$TARGET_DIR"/*.dylib; do
+          [ -e "$lib" ] || continue
+          echo "Processing dependencies for $(basename "$lib")"
+          
+          # List dependencies, find those using @rpath (excluding self), and loop them
+          otool -L "$lib" | grep "@rpath/" | grep -v "$(basename "$lib")" | awk '{print $1}' | while read -r OLD_DEP; do
+            # Extract the base name (e.g., libsnappy.1.dylib) from the complex path
+            # This handles cases like e.g. @rpath/libsnappy.1.1.10.dylib -> libsnappy.1.dylib
+            # as long as your copy step renamed the file to the major version.
+            DEP_BASE=$(basename "$OLD_DEP")
+            
+            # Check if we have a matching major-version file in our directory
+            # E.g. if libsnappy.1.1.10.dylib is requested, we map it to libsnappy.1.dylib
+            MATCHING_LIB=$(ls "$TARGET_DIR" | grep "${DEP_BASE%%.*}" | grep -E "\.[0-9]+\.dylib$" | head -n 1)
+            
+            if [ -n "$MATCHING_LIB" ]; then
+              echo "  Changing $OLD_DEP -> @loader_path/$MATCHING_LIB"
+              install_name_tool -change "$OLD_DEP" "@loader_path/$MATCHING_LIB" "$lib"
+            fi
+          done
+        done
         # set -x
 
         # TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
