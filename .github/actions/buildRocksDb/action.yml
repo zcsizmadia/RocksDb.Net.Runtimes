@@ -59,7 +59,6 @@ runs:
         VCPKG_FORCE_SYSTEM_BINARIES: ${{ contains(inputs.runtimeId, 'musl') && 1 || 0}}
       run: |
         vcpkg install rocksdb[snappy,zlib] --triplet=${{ inputs.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets
-        find vcpkg/installed/${{ inputs.runtimeId }}
 
     - name: Copy native libraries to runtimes
       shell: bash
@@ -72,20 +71,42 @@ runs:
         # Copy only MAJOR versioned shared library files for Linux and macOS.
         # Use cp -L to ensure we copy the actual files and not just the symlinks,
 
+        # Copy shared libraries
         case "${{ inputs.runtimeId }}" in
           win*)
             # Copy .dll files for Windows
             cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/*.dll "$TARGET_DIR"
 
             # Rename rocksdb_shared.dll to librocksdb.MAJOR.dll
-            mv "$TARGET_DIR/rocksdb_shared.dll" "$TARGET_DIR/librocksdb.$ROCKSDB_VERSION_MAJOR.dll"
+            mv "$TARGET_DIR/rocksdb-shared.dll" "$TARGET_DIR/librocksdb.$ROCKSDB_VERSION_MAJOR.dll"
             ;;
 
           linux*)
             # Copy MAJOR versioned .so files for Linux (e.g. librocksdb.so.11, libsnappy.so.1, libz.so.1).
             # Use cp -L to ensure we copy the actual files and not just the symlinks,
             find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} "$TARGET_DIR"
+            ;;
 
+          osx*)
+            # Copy MAJOR versioned .dylib files for macOS (e.g. librocksdb.11.dylib, libsnappy.1.dylib, libz.1.dylib).
+            find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "*.dylib" | grep -E '/lib[^.]+\.[0-9]+\.dylib$' | xargs -I {} cp -L {} "$TARGET_DIR"
+            ;;
+
+          *)
+            echo "Unsupported runtime ID: ${{ inputs.runtimeId }}"
+            exit 1
+            ;;
+        esac
+
+        # Show content of target directory
+        ls -l "$TARGET_DIR"
+
+        # Check if libraries are loadable
+        case "${{ inputs.runtimeId }}" in
+          win*)
+            ;;
+
+          linux*)
             # Check the copied .so files using ldd to ensure they have the expected version numbers in their names and correct dependencies
             if ldd "$TARGET_DIR"/*.so* | grep "not found"; then
               echo "Missing dependencies for Linux libraries:"
@@ -95,18 +116,11 @@ runs:
             ;;
 
           osx*)
-            # Copy MAJOR versioned .dylib files for macOS (e.g. librocksdb.11.dylib, libsnappy.1.dylib, libz.1.dylib).
-            find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "*.dylib" | grep -E '/lib[^.]+\.[0-9]+\.dylib$' | xargs -I {} cp -L {} "$TARGET_DIR"
-
             # Check the copied dylib files using otool -L to ensure they have the expected version numbers in their names and correct dependencies
             for lib in "$TARGET_DIR"/*.dylib; do
             [ -e "$lib" ] || continue
               otool -L "$lib"
             done
-            ;;
-          *)
-            echo "Unsupported runtime ID: ${{ inputs.runtimeId }}"
-            exit 1
             ;;
         esac
 
