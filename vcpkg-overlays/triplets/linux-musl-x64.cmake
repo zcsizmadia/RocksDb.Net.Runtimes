@@ -8,7 +8,7 @@ set(VCPKG_BUILD_TYPE release)
 # Tell the linker to set the RPATH to $ORIGIN
 # $ORIGIN is a special variable that tells the loader to look in the same 
 # directory as the library itself.
-set(VCPKG_LINKER_FLAGS "-Wl,-rpath,'$ORIGIN'")
+set(VCPKG_LINKER_FLAGS "-Wl,-rpath,'\\$ORIGIN' -Wl,--disable-new-dtags")
 
 # Disable vcpkg's automatic RPATH "fixup" 
 # vcpkg normally tries to clear RPATHs or point them to the vcpkg install tree.
