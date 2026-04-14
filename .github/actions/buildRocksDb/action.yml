@@ -47,11 +47,6 @@ runs:
           exit 1
         fi
 
-        ROCKSDB_VERSION_MAJOR="${ROCKSDB_VERSION_VCPKG%%.*}"
-
-        echo "ROCKSDB_VERSION=$ROCKSDB_VERSION_CSPROJ" | tee -a $GITHUB_ENV
-        echo "ROCKSDB_VERSION_MAJOR=$ROCKSDB_VERSION_MAJOR" | tee -a $GITHUB_ENV
-
     - name: Build RocksDb native libraries using vcpkg
       shell: bash
       env:
@@ -95,12 +90,18 @@ runs:
         done
 
         # Verify the RPATH is set correctly in the logs
-        ldd "$TARGET_DIR"/librocksdb.so*
+        ldd "$TARGET_DIR"/*.so*
+        if ldd "$TARGET_DIR"/*.so* | grep "not found"; then
+          echo "Error: Some dependencies are not found. Check the above ldd output for details."
+          exit 1
+        fi
 
     - name: Copy macOS native binaries to runtimes
       if: runner.os == 'macOS'
       shell: bash
       run: |
+        set -x
+
         TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
 
         # Create the target directory for the native libraries in the runtimes folder
@@ -113,7 +114,6 @@ runs:
         # Makes every lib identify as @rpath/filename.dylib
         for lib in "$TARGET_DIR"/*.dylib; do
           [ -e "$lib" ] || continue
-          echo "Setting ID for $(basename "$lib") -> $NEW_ID"
           install_name_tool -id "@rpath/$(basename "$lib")" "$lib"
         done
 
@@ -124,20 +124,26 @@ runs:
           
           # Add the loader path to the RPATH list
           # We use || true because it might already exist, and we don't want to fail
+          echo "Adding @loader_path to RPATH for $(basename "$lib")"
           install_name_tool -add_rpath "@loader_path/" "$lib" 2>/dev/null || true
           
           # 3. Clean up vcpkg's absolute references to dependencies
           # We find any dependency starting with '@rpath' and make sure it 
           # points to the simple filename so our RPATH above can find it.
+          echo "Fixing dependencies for $(basename "$lib")"
           otool -L "$lib" | grep "@rpath/" | grep -v "$(basename "$lib")" | awk '{print $1}' | while read -r OLD_DEP; do
             NEW_DEP="@rpath/$(basename "$OLD_DEP")"
             if [ "$OLD_DEP" != "$NEW_DEP" ]; then
+              echo "  Changing $OLD_DEP -> $NEW_DEP"
               install_name_tool -change "$OLD_DEP" "$NEW_DEP" "$lib" || true
             fi
           done
         done
 
-        otool -L "$TARGET_DIR"/librocksdb.$ROCKSDB_VERSION_MAJOR.dylib
+        # Log the final state of the libraries for debugging purposes
+        for lib in $TARGET_DIR/*.dylib; do
+          otool -L "$lib"
+        done
 
         # # 1. Standardize all internal IDs (Self-Identity)
         # # This makes every lib identify as @rpath/filename.dylib
