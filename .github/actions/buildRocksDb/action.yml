@@ -82,13 +82,13 @@ runs:
         # Dynamically find and copy all .so files that match the expected naming pattern (e.g. librocksdb.so.MAJOR, libsnappy.so.MAJOR, libz.so.MAJOR)
         find "vcpkg/installed/${{ inputs.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} "$TARGET_DIR"
 
-        for lib in *.so.*; do
+        for lib in "$TARGET_DIR"/*.so.*; do
           [ -e "$lib" ] || continue
           readelf -d "$lib"
         done
 
         # Verify the RPATH is set correctly in the logs
-        ldd *.so*
+        ldd "$TARGET_DIR"/*.so*
 
         exit 0
 
