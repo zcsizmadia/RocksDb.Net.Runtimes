@@ -73,24 +73,26 @@ runs:
     - name: Copy to runtimes
       shell: bash
       run: |
+        TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native"
+
         # Create the target directory for the native libraries in the runtimes folder
-        mkdir -p RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native
+        mkdir -p "$TARGET_DIR"
 
         case "${{ inputs.runtimeId }}" in
           win-*)
-            cp -L vcpkg/installed/${{ inputs.runtimeId }}/*.dll RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/
+            cp -L vcpkg/installed/${{ inputs.runtimeId }}/bin/*.dll "$TARGET_DIR"
             ;;
           linux-*)
             # Copy all .so files which end with a major version number only
             find vcpkg/installed/${{ inputs.runtimeId }}/lib \
               -regextype posix-extended \
               -regex '.*\.so\.[0-9]+$' \
-              -exec cp -L -t RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/ {} +
+              -exec cp -L -t "$TARGET_DIR" {} +
             ;;
           osx-*)
             find -E vcpkg/installed/${{ inputs.runtimeId }}/lib \
               -regex '.*(\.[0-9]+)+\.dylib$' \
-              -exec cp -L {} RocksDb.Net.Runtimes/runtimes/${{ inputs.runtimeId }}/native/ \;
+              -exec cp -L {} "$TARGET_DIR" \;
             ;;
           *)
             echo "Unsupported platform: ${{ inputs.runtimeId }}"
