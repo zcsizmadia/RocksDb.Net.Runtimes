@@ -6,8 +6,9 @@ set(VCPKG_FIXUP_ELF_RPATH ON)
 set(VCPKG_BUILD_TYPE release)
 
 # 1. Disable fixup first.
-set(VCPKG_FIXUP_ELF_RPATH OFF)
+#set(VCPKG_FIXUP_ELF_RPATH OFF)
+set(VCPKG_FIXUP_ELF_RPATH ON)
 
 # 2. Use double-backslash for the dollar sign. 
 # Without the backslashes, CMake often treats $ORIGIN as an empty CMake variable.
-set(VCPKG_LINKER_FLAGS "-Wl,-rpath,'\\\$ORIGIN' -Wl,--disable-new-dtags")
+#set(VCPKG_LINKER_FLAGS "-Wl,-rpath,'\$ORIGIN' -Wl,--disable-new-dtags")
