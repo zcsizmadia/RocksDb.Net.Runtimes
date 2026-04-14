@@ -1,10 +1,6 @@
 <Project>
   <PropertyGroup>
-    <DefaultTargetFramework>net10.0</DefaultTargetFramework>
-  </PropertyGroup>
-
-  <PropertyGroup>
     <RocksDbVersion>11.0.4</RocksDbVersion>
-    <Version>$(RocksDbVersion).1</Version>
+    <Version>$(RocksDbVersion).2</Version>
   </PropertyGroup>
 </Project>

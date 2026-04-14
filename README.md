@@ -24,6 +24,8 @@ In most scenarios, you should install [RocksDb.Net](https://github.com/zcsizmadi
 - `win-arm64`
 - `linux-x64`
 - `linux-arm64`
+- `linux-musl-x64`
+- `linux-musl-arm64`
 - `osx-x64`
 - `osx-arm64`
 
@@ -31,7 +33,7 @@ In most scenarios, you should install [RocksDb.Net](https://github.com/zcsizmadi
 
 Depending on the target runtime, the package includes:
 
-- RocksDB shared library (`librocksdb` / `rocksdb-shared.dll`)
+- RocksDB shared library (`rocksdb-shared.dll` / `librocksdb`)
 - zlib (`zlib1.dll` / `libz`)
 - snappy (`snappy.dll` / `libsnappy`)
 

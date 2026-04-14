@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <IncludeBuildOutput>false</IncludeBuildOutput>
+     <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -33,44 +34,6 @@
     <None Include="../LICENSE" Pack="true" PackagePath="" />
     <None Include="../README.md" Pack="true" PackagePath="" />
     <None Include="../logo-128.png" Pack="true" PackagePath="" />
-  </ItemGroup>
-
-  <!-- win -->
-  <ItemGroup>
-    <!-- win-x64 -->
-    <Content Include="runtimes/win-x64/native/rocksdb-shared.dll" Pack="true" PackagePath="runtimes/win-x64/native/librocksdb.11.dll" />
-    <Content Include="runtimes/win-x64/native/zlib1.dll" Pack="true" PackagePath="runtimes/win-x64/native/" />
-    <Content Include="runtimes/win-x64/native/snappy.dll" Pack="true" PackagePath="runtimes/win-x64/native/" />
-
-    <!-- win-arm64 -->
-    <Content Include="runtimes/win-arm64/native/rocksdb-shared.dll" Pack="true" PackagePath="runtimes/win-arm64/native/librocksdb.11.dll" />
-    <Content Include="runtimes/win-arm64/native/zlib1.dll" Pack="true" PackagePath="runtimes/win-arm64/native/" />
-    <Content Include="runtimes/win-arm64/native/snappy.dll" Pack="true" PackagePath="runtimes/win-arm64/native/" />
-  </ItemGroup>
-
-  <!-- linux -->
-  <ItemGroup>
-    <!-- linux-x64 -->
-    <Content Include="runtimes/linux-x64/native/librocksdb.so.11" Pack="true" PackagePath="runtimes/linux-x64/native/" />
-    <Content Include="runtimes/linux-x64/native/libz.so.1" Pack="true" PackagePath="runtimes/linux-x64/native/" />
-    <Content Include="runtimes/linux-x64/native/libsnappy.so.1" Pack="true" PackagePath="runtimes/linux-x64/native/" />
-
-    <!-- linux-arm64 -->
-    <Content Include="runtimes/linux-arm64/native/librocksdb.so.11" Pack="true" PackagePath="runtimes/linux-arm64/native/" />
-    <Content Include="runtimes/linux-arm64/native/libz.so.1" Pack="true" PackagePath="runtimes/linux-arm64/native/" />
-    <Content Include="runtimes/linux-arm64/native/libsnappy.so.1" Pack="true" PackagePath="runtimes/linux-arm64/native/" />
-  </ItemGroup>
-
-  <!-- osx -->
-  <ItemGroup>
-    <!-- osx-x64 -->
-    <Content Include="runtimes/osx-x64/native/librocksdb.11.dylib" Pack="true" PackagePath="runtimes/osx-x64/native/" />
-    <Content Include="runtimes/osx-x64/native/libz.1.dylib" Pack="true" PackagePath="runtimes/osx-x64/native/" />
-    <Content Include="runtimes/osx-x64/native/libsnappy.1.dylib" Pack="true" PackagePath="runtimes/osx-x64/native/" />
-
-    <!-- osx-arm64 -->
-    <Content Include="runtimes/osx-arm64/native/librocksdb.11.dylib" Pack="true" PackagePath="runtimes/osx-arm64/native/" />
-    <Content Include="runtimes/osx-arm64/native/libz.1.dylib" Pack="true" PackagePath="runtimes/osx-arm64/native/" />
-    <Content Include="runtimes/osx-arm64/native/libsnappy.1.dylib" Pack="true" PackagePath="runtimes/osx-arm64/native/" />
+    <None Include="runtimes/**" Pack="true" PackagePath="runtimes/" />
   </ItemGroup>
 </Project>

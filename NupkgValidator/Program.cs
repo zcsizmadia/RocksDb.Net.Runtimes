@@ -19,6 +19,7 @@ class Program
         // Register the custom DLL resolver for the current assembly
         NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), ResolveRuntimeDll);
     }
+
     static int Main(string[] args)
     {
         // Database path can be specified as a command-line argument, defaulting to "rocksdb" if not provided
@@ -52,6 +53,7 @@ class Program
     // Native methods and library loading logic
 
     const string LibName = "librocksdb";
+    const int LibVersionMajor = 11;
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern nint rocksdb_open(
@@ -79,27 +81,19 @@ class Program
             return IntPtr.Zero; // Fallback to default loading logic
         }
 
-        // Determine Architecture/OS/Extension
-
-        string os;
+        string rid = RuntimeInformation.RuntimeIdentifier;
         string libraryNameExt;
-        string arch = RuntimeInformation.ProcessArchitecture.ToString().ToLower();
-
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            os = "win";
-            libraryNameExt = $"{LibName}.11.dll";
-
+            libraryNameExt = $"{LibName}.{LibVersionMajor}.dll";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            os = "osx";
-            libraryNameExt = $"{LibName}.11.dylib";
+            libraryNameExt = $"{LibName}.{LibVersionMajor}.dylib";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            os = "linux";
-            libraryNameExt = $"{LibName}.so.11";
+            libraryNameExt = $"{LibName}.so.{LibVersionMajor}";
         }
         else
         {
@@ -107,14 +101,14 @@ class Program
         }
 
         // Attempt to load the library from the assembly location directory
-        string libPath = Path.Combine(Path.GetDirectoryName(assembly.Location) ?? AppContext.BaseDirectory, "runtimes", $"{os}-{arch}", "native", libraryNameExt);
+        string libPath = Path.Combine(Path.GetDirectoryName(assembly.Location) ?? AppContext.BaseDirectory, "runtimes", rid, "native", libraryNameExt);
         if (File.Exists(libPath))
         {
             return NativeLibrary.Load(libPath);
         }
 
         // Attempt to load the library from the application base directory
-        libPath = Path.Combine(AppContext.BaseDirectory, "runtimes", $"{os}-{arch}", "native", libraryNameExt);
+        libPath = Path.Combine(AppContext.BaseDirectory, "runtimes", rid, "native", libraryNameExt);
         if (File.Exists(libPath))
         {
             return NativeLibrary.Load(libPath);
