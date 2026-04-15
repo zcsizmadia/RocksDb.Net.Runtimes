@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Build RocksDb native libraries for all platforms in parallel. (non-musl)
   build-rocksdb:
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix: &platform-matrix
@@ -43,6 +48,7 @@ jobs:
   # Build RocksDb native libraries for musl-based Linux platforms in parallel
   # Musl-based Linux platforms require a container with Alpine, so we build them in a separate job using an Alpine container
   build-rocksdb-musl:
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix: &platform-matrix-musl

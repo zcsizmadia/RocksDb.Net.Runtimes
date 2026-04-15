@@ -18,7 +18,9 @@
     <RepositoryUrl>https://github.com/zcsizmadia/RocksDb.Net.Runtimes</RepositoryUrl>
     <PackageProjectUrl>https://github.com/zcsizmadia/RocksDb.Net.Runtimes</PackageProjectUrl>
     <PackageIcon>logo-128.png</PackageIcon>
+    <PackageReleaseNotes><a href="https://github.com/zcsizmadia/RocksDb.Net.Runtimes/releases">Release Notes</a></PackageReleaseNotes>
     <Description>This package contains the compiled native binaries for RocksDb.Net.</Description>
+    <Copyright>Copyright © 2026 Zoltan Csizmadia</Copyright>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
 
