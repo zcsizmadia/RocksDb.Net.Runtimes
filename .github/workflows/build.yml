@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Build RocksDb native libraries for all platforms in parallel. (non-musl)
   build-rocksdb:
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix: &platform-matrix
@@ -43,6 +48,7 @@ jobs:
   # Build RocksDb native libraries for musl-based Linux platforms in parallel
   # Musl-based Linux platforms require a container with Alpine, so we build them in a separate job using an Alpine container
   build-rocksdb-musl:
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix: &platform-matrix-musl
@@ -55,12 +61,12 @@ jobs:
             os: ubuntu-24.04-arm
 
     runs-on: ${{ matrix.os }}
-    container: alpine:latest
+    container: alpine:edge # alpine:latest
     steps:
-      # action/checkout fails on Alpine Arm64 without this fix
-      - name: Fix Alpine arm64 compatibility
-        if: matrix.runtimeId == 'linux-musl-arm64'
-        uses: laverdet/alpine-arm64@v1
+      # # action/checkout fails on Alpine Arm64 without this fix
+      # - name: Fix Alpine arm64 compatibility
+      #   if: matrix.runtimeId == 'linux-musl-arm64'
+      #   uses: laverdet/alpine-arm64@v1
 
       - uses: actions/checkout@v6
 
@@ -123,12 +129,12 @@ jobs:
       matrix: *platform-matrix-musl
 
     runs-on: ${{ matrix.os }}
-    container: alpine:latest
+    container: alpine:edge # alpine:latest
     steps:
-      # action/checkout fails on Alpine Arm64 without this fix
-      - name: Fix Alpine arm64 compatibility
-        if: matrix.runtimeId == 'linux-musl-arm64'
-        uses: laverdet/alpine-arm64@v1
+      # # action/checkout fails on Alpine Arm64 without this fix
+      # - name: Fix Alpine arm64 compatibility
+      #   if: matrix.runtimeId == 'linux-musl-arm64'
+      #   uses: laverdet/alpine-arm64@v1
 
       - uses: actions/checkout@v6
 

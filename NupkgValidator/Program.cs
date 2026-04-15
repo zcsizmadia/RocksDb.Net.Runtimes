@@ -53,8 +53,7 @@ class Program
     // Native methods and library loading logic
 
     const string LibName = "librocksdb";
-    const int LibVersionMajor = 11;
-
+    
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern nint rocksdb_open(
         nint options,
@@ -81,19 +80,25 @@ class Program
             return IntPtr.Zero; // Fallback to default loading logic
         }
 
+        int libVersionMajor = int.Parse(Assembly
+            .GetExecutingAssembly()
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .First(a => a.Key == "RocksDbVersion")
+            .Value!.Split('.')[0]);
+
         string rid = RuntimeInformation.RuntimeIdentifier;
         string libraryNameExt;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            libraryNameExt = $"{LibName}.{LibVersionMajor}.dll";
+            libraryNameExt = $"{LibName}.{libVersionMajor}.dll";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            libraryNameExt = $"{LibName}.{LibVersionMajor}.dylib";
+            libraryNameExt = $"{LibName}.{libVersionMajor}.dylib";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            libraryNameExt = $"{LibName}.so.{LibVersionMajor}";
+            libraryNameExt = $"{LibName}.so.{libVersionMajor}";
         }
         else
         {

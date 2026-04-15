@@ -4,6 +4,10 @@ on:
   release:
     types: [published]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel releases in progress
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -68,19 +72,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.event.release.tag_name }} "${{ env.TARGET_NUPKG }}"
+          gh release upload ${{ github.event.release.tag_name }} "$TARGET_NUPKG"
 
       - name: Publish to NuGet.org
         shell: bash
         run: |
-          dotnet nuget push "${{ env.TARGET_NUPKG }}" \
+          dotnet nuget push "$TARGET_NUPKG" \
             --api-key ${{ secrets.NUGET_API_KEY }} \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
       - name: Publish to GitHub Packages
         run: |
-          dotnet nuget push "${{ env.TARGET_NUPKG }}" \
+          dotnet nuget push "$TARGET_NUPKG" \
             --api-key ${{ secrets.GITHUB_TOKEN }} \
             --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --skip-duplicate
