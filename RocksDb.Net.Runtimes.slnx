@@ -33,5 +33,4 @@
     <File Path="Directory.Build.props" />
   </Folder>
   <Project Path="RocksDb.Net.Runtimes/RocksDb.Net.Runtimes.csproj" />
-  <Project Path="NupkgValidator/NupkgValidator.csproj" />
 </Solution>
