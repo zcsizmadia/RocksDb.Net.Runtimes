@@ -61,13 +61,17 @@ jobs:
             os: ubuntu-24.04-arm
 
     runs-on: ${{ matrix.os }}
-    container: alpine:edge # alpine:latest
+    container: alpine:latest
     steps:
       # # action/checkout fails on Alpine Arm64 without this fix
       # - name: Fix Alpine arm64 compatibility
       #   if: matrix.runtimeId == 'linux-musl-arm64'
       #   uses: laverdet/alpine-arm64@v1
 
+      - name: Fix Alpine arm64 compatibility
+        if: matrix.runtimeId == 'linux-musl-arm64'
+        run: apk add --no-cache nodejs git
+        
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/buildRocksDb
@@ -129,12 +133,16 @@ jobs:
       matrix: *platform-matrix-musl
 
     runs-on: ${{ matrix.os }}
-    container: alpine:edge # alpine:latest
+    container: alpine:latest
     steps:
       # # action/checkout fails on Alpine Arm64 without this fix
       # - name: Fix Alpine arm64 compatibility
       #   if: matrix.runtimeId == 'linux-musl-arm64'
       #   uses: laverdet/alpine-arm64@v1
+
+      - name: Fix Alpine arm64 compatibility
+        if: matrix.runtimeId == 'linux-musl-arm64'
+        run: apk add --no-cache nodejs git
 
       - uses: actions/checkout@v6
 
