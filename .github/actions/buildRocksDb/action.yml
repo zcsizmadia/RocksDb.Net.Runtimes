@@ -58,7 +58,7 @@ runs:
       env:
         VCPKG_FORCE_SYSTEM_BINARIES: ${{ contains(inputs.runtimeId, 'musl') && 1 || 0}}
       run: |
-        vcpkg install rocksdb[snappy,zlib] --triplet=${{ inputs.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets
+        vcpkg install rocksdb[snappy,zlib,lz4,zstd] --triplet=${{ inputs.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets
 
     - name: Copy native libraries to runtimes
       shell: bash

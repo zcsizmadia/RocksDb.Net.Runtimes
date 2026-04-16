@@ -33,9 +33,11 @@ In most scenarios, you should install [RocksDb.Net](https://github.com/zcsizmadi
 
 Depending on the target runtime, the package includes:
 
-- RocksDB shared library (`rocksdb-shared.dll` / `librocksdb`)
-- zlib (`zlib1.dll` / `libz`)
-- snappy (`snappy.dll` / `libsnappy`)
+- RocksDB shared library
+- lz4
+- snappy
+- zlib
+- zstd
 
 ## Installation
 
