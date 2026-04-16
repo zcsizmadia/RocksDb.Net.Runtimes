@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
     <RocksDbVersion>11.0.4</RocksDbVersion>
-    <Version>$(RocksDbVersion).2</Version>
+    <Version>$(RocksDbVersion).3</Version>
   </PropertyGroup>
 </Project>
