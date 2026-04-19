@@ -25,7 +25,6 @@ In most scenarios, you should install [RocksDb.Net](https://github.com/zcsizmadi
 - `win-x86`
 - `win-x64`
 - `win-arm64`
-- `linux-x86`
 - `linux-x64`
 - `linux-arm64`
 - `linux-musl-x64`
