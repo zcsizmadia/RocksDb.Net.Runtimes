@@ -4,6 +4,8 @@ Native runtime assets for [RocksDb.Net](https://github.com/zcsizmadia/RocksDb.Ne
 
 This package contains platform-specific native libraries required by RocksDB when used from .NET.
 
+All native runtime binaries included in this package are automatically compiled from [source](https://github.com/facebook/rocksdb) using GitHub Actions workflows. This ensures that the binaries for all supported targets—including Windows, Linux (glibc and musl), and macOS across both x64 and ARM64 architectures—are built in a transparent, reproducible, and consistent environment.
+
 ## Upstream and Attribution
 
 The native `librocksdb` binaries in this package are based on the upstream RocksDB project maintained by Facebook and contributors:
@@ -20,8 +22,10 @@ In most scenarios, you should install [RocksDb.Net](https://github.com/zcsizmadi
 
 ## Supported Runtimes
 
+- `win-x86`
 - `win-x64`
 - `win-arm64`
+- `linux-x86`
 - `linux-x64`
 - `linux-arm64`
 - `linux-musl-x64`
