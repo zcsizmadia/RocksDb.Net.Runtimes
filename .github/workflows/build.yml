@@ -223,6 +223,9 @@ jobs:
       matrix: *platform-matrix
 
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    name: validate-nupkg (${{ matrix.runtimeId }})
+
     steps:
       # action/checkout fails on Alpine Arm64 without this fix
       - name: Fix Alpine arm64 compatibility
