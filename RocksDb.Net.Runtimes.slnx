@@ -6,14 +6,6 @@
     <File Path=".github/workflows/build.yml" />
     <File Path=".github/workflows/release.yml" />
   </Folder>
-  <Folder Name="/.github/actions/">
-  </Folder>
-  <Folder Name="/.github/actions/buildRocksDb/">
-    <File Path=".github/actions/buildRocksDb/action.yml" />
-  </Folder>
-  <Folder Name="/.github/actions/validateNupkg/">
-    <File Path=".github/actions/validateNupkg/action.yml" />
-  </Folder>
   <Folder Name="/vcpkg-overlays/">
   </Folder>
   <Folder Name="/vcpkg-overlays/triplets/">

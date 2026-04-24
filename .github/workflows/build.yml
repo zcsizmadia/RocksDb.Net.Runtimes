@@ -11,13 +11,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Build RocksDb native libraries for all platforms in parallel. (non-musl)
+  # Build RocksDb native libraries for all platforms in parallel.
   build-rocksdb:
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix: &platform-matrix
-        runtimeId: [win-x86, win-x64, win-arm64, linux-x64, linux-arm64, osx-x64, osx-arm64]
+        runtimeId: [win-x86, win-x64, win-arm64, linux-x64, linux-arm64, linux-musl-x64, linux-musl-arm64, osx-x64, osx-arm64]
         include:
           - runtimeId: win-x86
             os: windows-latest
@@ -34,6 +34,14 @@ jobs:
           - runtimeId: linux-arm64
             os: ubuntu-24.04-arm
 
+          - runtimeId: linux-musl-x64
+            os: ubuntu-latest
+            container: alpine:latest
+
+          - runtimeId: linux-musl-arm64
+            os: ubuntu-24.04-arm
+            container: alpine:latest
+
           - runtimeId: osx-x64
             os: macos-latest
 
@@ -41,30 +49,9 @@ jobs:
             os: macos-latest
 
     runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v6
+    container: ${{ matrix.container }}
+    name: build-rocksdb (${{ matrix.runtimeId }})
 
-      - uses: ./.github/actions/buildRocksDb
-        with:
-          runtimeId: ${{ matrix.runtimeId }}
-
-  # Build RocksDb native libraries for musl-based Linux platforms in parallel
-  # Musl-based Linux platforms require a container with Alpine, so we build them in a separate job using an Alpine container
-  build-rocksdb-musl:
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix: &platform-matrix-musl
-        runtimeId: [linux-musl-x64, linux-musl-arm64]
-        include:
-          - runtimeId: linux-musl-x64
-            os: ubuntu-latest
-
-          - runtimeId: linux-musl-arm64
-            os: ubuntu-24.04-arm
-
-    runs-on: ${{ matrix.os }}
-    container: alpine:latest
     steps:
       # action/checkout fails on Alpine Arm64 without this fix
       - name: Fix Alpine arm64 compatibility
@@ -73,15 +60,133 @@ jobs:
 
       - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/buildRocksDb
-        with:
-          runtimeId: ${{ matrix.runtimeId }}
+      # Install packages needed for building and testing the native libraries.
+      - name: Install packages
+        shell: sh
+        run: |
+          if [ -f /etc/alpine-release ]; then
+            apk add --no-cache build-base cmake git ninja curl zip unzip tar bash icu pkgconf patchelf perl linux-headers
+          fi
 
+      - name: Install vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
+
+      # Install .NET SDKs to extract the RocksDB version from the csproj file,
+      # which is used to ensure the vcpkg version matches and to determine the expected library file names
+      - name: Install .NET SDKs
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Check RocksDb version
+        shell: bash
+        run: |
+          # Extract rocksdb version from csproj
+          ROCKSDB_VERSION_CSPROJ="$(dotnet msbuild RocksDb.Net.Runtimes/ -getProperty:RocksDbVersion -nologo -v:q | tr -d '\r' | xargs)"
+          echo "RocksDb version from csproj: $ROCKSDB_VERSION_CSPROJ"
+
+          # Extract version from vcpkg.json
+          ROCKSDB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/rocksdb/vcpkg.json)
+          echo "RocksDb version from vcpkg.json: $ROCKSDB_VERSION_VCPKG"
+
+          # Check if ROCKSDB_VERSION_VCPKG is the same as ROCKSDB_VERSION_CSPROJ
+          if [[ "$ROCKSDB_VERSION_VCPKG" != "$ROCKSDB_VERSION_CSPROJ" ]]; then
+            echo "RocksDb version mismatch! Tag version ($ROCKSDB_VERSION_VCPKG) does not match csproj version ($ROCKSDB_VERSION_CSPROJ)."
+            exit 1
+          fi
+
+          ROCKSDB_VERSION=$ROCKSDB_VERSION_CSPROJ
+          ROCKSDB_VERSION_MAJOR=$(echo "$ROCKSDB_VERSION" | cut -d. -f1)
+
+          echo "ROCKSDB_VERSION=$ROCKSDB_VERSION" | tee -a $GITHUB_ENV
+          echo "ROCKSDB_VERSION_MAJOR=$ROCKSDB_VERSION_MAJOR" | tee -a $GITHUB_ENV
+
+      - name: Build RocksDb native libraries using vcpkg
+        shell: bash
+        env:
+          VCPKG_FORCE_SYSTEM_BINARIES: ${{ contains(matrix.runtimeId, 'musl') && 1 || 0}}
+        run: |
+          vcpkg install rocksdb[snappy,zlib,lz4,zstd] --triplet=${{ matrix.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets
+
+      - name: Copy native libraries to runtimes
+        shell: bash
+        run: |
+          TARGET_DIR="RocksDb.Net.Runtimes/runtimes/${{ matrix.runtimeId }}/native"
+
+          # Create the target directory for the native libraries in the runtimes folder
+          mkdir -p "$TARGET_DIR"
+
+          # Copy only MAJOR versioned shared library files for Linux and macOS.
+          # Use cp -L to ensure we copy the actual files and not just the symlinks,
+
+          # Copy shared libraries
+          case "${{ matrix.runtimeId }}" in
+            win*)
+              # Copy .dll files for Windows
+              cp -L vcpkg/installed/${{ matrix.runtimeId }}/bin/*.dll "$TARGET_DIR"
+
+              # Rename rocksdb_shared.dll to librocksdb.MAJOR.dll
+              mv "$TARGET_DIR/rocksdb-shared.dll" "$TARGET_DIR/librocksdb.$ROCKSDB_VERSION_MAJOR.dll"
+              ;;
+
+            linux*)
+              # Copy MAJOR versioned .so files for Linux (e.g. librocksdb.so.11, libsnappy.so.1, libz.so.1).
+              # Use cp -L to ensure we copy the actual files and not just the symlinks,
+              find "vcpkg/installed/${{ matrix.runtimeId }}/lib" -maxdepth 1 -name "lib*.so.*" | grep -E '/lib[^.]+\.so\.[0-9]+$' | xargs -I {} cp -L {} "$TARGET_DIR"
+              ;;
+
+            osx*)
+              # Copy MAJOR versioned .dylib files for macOS (e.g. librocksdb.11.dylib, libsnappy.1.dylib, libz.1.dylib).
+              find "vcpkg/installed/${{ matrix.runtimeId }}/lib" -maxdepth 1 -name "*.dylib" | grep -E '/lib[^.]+\.[0-9]+\.dylib$' | xargs -I {} cp -L {} "$TARGET_DIR"
+              ;;
+
+            *)
+              echo "Unsupported runtime ID: ${{ matrix.runtimeId }}"
+              exit 1
+              ;;
+          esac
+
+          # Show content of target directory
+          ls -l "$TARGET_DIR"
+
+          # Check if libraries are loadable
+          case "${{ matrix.runtimeId }}" in
+            win*)
+              ;;
+
+            linux*)
+              # Check the copied .so files using ldd to ensure they have the expected version numbers in their names and correct dependencies
+              ldd "$TARGET_DIR"/*.so* | tee "/tmp/ldd_output.log"
+              if grep -q "not found" /tmp/ldd_output.log; then
+                echo "Missing dependencies!"
+                exit 1
+              fi
+              ;;
+
+            osx*)
+              # Check the copied dylib files using otool -L to ensure they have the expected version numbers in their names and correct dependencies
+              for lib in "$TARGET_DIR"/*.dylib; do
+              [ -e "$lib" ] || continue
+                otool -L "$lib"
+              done
+              ;;
+          esac
+
+      - name: Upload native library artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtimes-${{ matrix.runtimeId }}
+          path: RocksDb.Net.Runtimes/runtimes
+
+  
   # Build NuGet package after all native libraries have been built successfully
   build-nupkg:
-    needs: [build-rocksdb, build-rocksdb-musl]
+    needs: [build-rocksdb]
     runs-on: ubuntu-latest
-    if: always() && needs.build-rocksdb.result == 'success' && needs.build-rocksdb-musl.result == 'success'
+    if: always() && needs.build-rocksdb.result == 'success'
     steps:
       - uses: actions/checkout@v6
 
@@ -109,7 +214,7 @@ jobs:
           name: nuget-package
           path: nupkgs/*.nupkg
 
-  # Validate the NuGet package by running tests that load the native libraries and perform basic operations to ensure they are working correctly. (non-musl)
+  # Validate the NuGet package by running tests that load the native libraries and perform basic operations to ensure they are working correctly.
   validate-nupkg:
     needs: [build-nupkg]
     if: always() && needs.build-nupkg.result == 'success'
@@ -119,21 +224,6 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: ./.github/actions/validateNupkg
-
-  # Validate the NuGet package by running tests that load the native libraries and perform basic operations to ensure they are working correctly. (musl)
-  validate-nupkg-musl:
-    needs: [build-nupkg]
-    if: always() && needs.build-nupkg.result == 'success'
-    strategy:
-      fail-fast: false
-      matrix: *platform-matrix-musl
-
-    runs-on: ${{ matrix.os }}
-    container: alpine:latest
-    steps:
       # action/checkout fails on Alpine Arm64 without this fix
       - name: Fix Alpine arm64 compatibility
         if: matrix.runtimeId == 'linux-musl-arm64'
@@ -141,4 +231,30 @@ jobs:
 
       - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/validateNupkg
+      # Install packages needed for testing the native libraries.
+      - name: Install packages
+        shell: sh
+        run: |
+          if [ -f /etc/alpine-release ]; then
+            apk add --no-cache bash icu
+          fi
+
+      - name: Install .NET SDKs
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Download NuGet package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: nuget-package
+          path: nupkgs
+
+      - name: Run NupkgValidator
+        shell: bash
+        run: |
+          cd NupkgValidator
+          dotnet restore --source ../nupkgs
+          dotnet build --no-restore
+          dotnet run --no-build
