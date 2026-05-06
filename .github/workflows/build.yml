@@ -43,7 +43,7 @@ jobs:
             container: alpine:latest
 
           - runtimeId: osx-x64
-            os: macos-latest
+            os: macos-26-intel
 
           - runtimeId: osx-arm64
             os: macos-latest
