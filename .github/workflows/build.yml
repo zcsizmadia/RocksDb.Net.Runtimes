@@ -17,7 +17,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix: &platform-matrix
-        runtimeId: [win-x86, win-x64, win-arm64, linux-x64, linux-arm64, linux-musl-x64, linux-musl-arm64, osx-x64, osx-arm64]
+        #runtimeId: [win-x86, win-x64, win-arm64, linux-x64, linux-arm64, linux-musl-x64, linux-musl-arm64, osx-x64, osx-arm64]
+        runtimeId: [osx-arm64]
         include:
           - runtimeId: win-x86
             os: windows-latest
@@ -110,6 +111,16 @@ jobs:
           VCPKG_FORCE_SYSTEM_BINARIES: ${{ contains(matrix.runtimeId, 'musl') && 1 || 0}}
         run: |
           vcpkg install rocksdb[snappy,zlib,lz4,zstd] --triplet=${{ matrix.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets
+
+      - name: Upload vcpkg CMake build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcpkg-cmake-logs-${{ matrix.runtimeId }}
+          path: |
+            vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/*.txt
+          if-no-files-found: ignore
 
       - name: Copy native libraries to runtimes
         shell: bash
