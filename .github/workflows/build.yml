@@ -71,7 +71,7 @@ jobs:
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: "afeb285c9e2e015292985856b9382ea1d82a4492"
+          vcpkgGitCommitId: "a51bb4d1434e6d0927ff79db8033bed8522b85df"
 
       # Install .NET SDKs to extract the RocksDB version from the csproj file,
       # which is used to ensure the vcpkg version matches and to determine the expected library file names
@@ -110,6 +110,16 @@ jobs:
           VCPKG_FORCE_SYSTEM_BINARIES: ${{ contains(matrix.runtimeId, 'musl') && 1 || 0}}
         run: |
           vcpkg install rocksdb[snappy,zlib,lz4,zstd] --triplet=${{ matrix.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets
+
+      - name: Upload vcpkg CMake build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcpkg-cmake-logs-${{ matrix.runtimeId }}
+          path: |
+            vcpkg/buildtrees/**/*.log
+            vcpkg/buildtrees/**/*.txt
+          if-no-files-found: ignore
 
       - name: Copy native libraries to runtimes
         shell: bash
