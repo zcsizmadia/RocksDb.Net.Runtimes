@@ -71,7 +71,7 @@ jobs:
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: "a51bb4d1434e6d0927ff79db8033bed8522b85df"
+          vcpkgGitCommitId: "30ef65cad98f08e7197c9a1656fbd871bcb72f2d"
 
       # Install .NET SDKs to extract the RocksDB version from the csproj file,
       # which is used to ensure the vcpkg version matches and to determine the expected library file names
