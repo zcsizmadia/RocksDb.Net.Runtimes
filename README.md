@@ -14,6 +14,11 @@ The native `librocksdb` binaries in this package are based on the upstream Rocks
 
 This package redistributes native RocksDB runtime binaries for use with the .NET package RocksDb.Net. All rights to RocksDB belong to its respective authors and maintainers. This package is an independent distribution focused on .NET runtime asset packaging.
 
+RocksDB is built here with Snappy, zlib, LZ4 and Zstandard support, and those
+compression libraries ship alongside it, so the package redistributes them too.
+Every one is built from unmodified upstream sources through vcpkg. Attribution and
+the full licence text for all five are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
 ## What This Package Is
 
 `RocksDb.Net.Runtimes` is a runtime-asset NuGet package. It ships native binaries under `runtimes/<RID>/native` so the .NET runtime can load RocksDB on each supported operating system and architecture.
@@ -70,4 +75,13 @@ dotnet add package RocksDb.Net.Runtimes
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+The build scripts and packaging in this repository are MIT. See [LICENSE](LICENSE).
+
+The native libraries in the package are third-party software and carry their own
+terms. RocksDB is dual-licensed under the Apache 2.0 Licence and the GPLv2, and
+the package also ships the Snappy, zlib, LZ4 and Zstandard shared libraries under
+BSD and zlib terms.
+
+See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for attribution and the
+[licenses](licenses) directory for the full text of each. Both are included in the
+package itself, not just in this repository.

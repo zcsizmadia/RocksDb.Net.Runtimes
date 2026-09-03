@@ -19,3 +19,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+This licence covers the build scripts and packaging in this repository only.
+
+The native libraries in the package are third-party software redistributed in
+binary form, and their own terms apply to them. RocksDB is developed by Meta
+Platforms, Inc. and is dual-licensed under the Apache 2.0 Licence and the
+GPLv2. The package also ships the Snappy, zlib, LZ4 and Zstandard shared
+libraries, which carry BSD and zlib terms of their own.
+
+See THIRD-PARTY-NOTICES.md for attribution, and the licenses/ directory for
+the full text of each licence.
