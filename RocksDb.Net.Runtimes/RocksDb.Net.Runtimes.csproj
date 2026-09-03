@@ -18,7 +18,7 @@
     <RepositoryUrl>https://github.com/zcsizmadia/RocksDb.Net.Runtimes</RepositoryUrl>
     <PackageProjectUrl>https://github.com/zcsizmadia/RocksDb.Net.Runtimes</PackageProjectUrl>
     <PackageIcon>logo-128.png</PackageIcon>
-    <PackageReleaseNotes><a href="https://github.com/zcsizmadia/RocksDb.Net.Runtimes/releases">Release Notes</a></PackageReleaseNotes>
+    <PackageReleaseNotes>https://github.com/zcsizmadia/RocksDb.Net.Runtimes/releases</PackageReleaseNotes>
     <Description>This package contains the compiled native binaries for RocksDb.Net.</Description>
     <Copyright>Copyright © 2026 Zoltan Csizmadia</Copyright>
     <IsPackable>true</IsPackable>
@@ -34,6 +34,16 @@
 
   <ItemGroup>
     <None Include="../LICENSE" Pack="true" PackagePath="" />
+
+    <!--
+      The package redistributes RocksDB, Snappy, zlib, LZ4 and Zstandard in
+      binary form. The BSD licences among those require the copyright notice,
+      conditions and disclaimer to travel with the binaries, and Apache 2.0
+      requires a copy of its own text, so the notices and licence files are
+      packed rather than merely committed here.
+    -->
+    <None Include="../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" />
+    <None Include="../licenses/**" Pack="true" PackagePath="licenses/" />
     <None Include="../README.md" Pack="true" PackagePath="" />
     <None Include="../logo-128.png" Pack="true" PackagePath="" />
     <None Include="runtimes/**" Pack="true" PackagePath="runtimes/" />
