@@ -71,7 +71,7 @@ jobs:
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: "30ef65cad98f08e7197c9a1656fbd871bcb72f2d"
+          vcpkgGitCommitId: "479d7e8c4880b8fd84261e41a182e9c8ad2c5db1"
 
       # Install .NET SDKs to extract the RocksDB version from the csproj file,
       # which is used to ensure the vcpkg version matches and to determine the expected library file names
@@ -91,6 +91,11 @@ jobs:
           # Extract version from vcpkg.json
           ROCKSDB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/rocksdb/vcpkg.json)
           echo "RocksDb version from vcpkg.json: $ROCKSDB_VERSION_VCPKG"
+
+          # Upstream may tag without a patch number (e.g. v11.12), so pad to MAJOR.MINOR.PATCH
+          if [[ "$ROCKSDB_VERSION_VCPKG" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            ROCKSDB_VERSION_VCPKG="$ROCKSDB_VERSION_VCPKG.0"
+          fi
 
           # Check if ROCKSDB_VERSION_VCPKG is the same as ROCKSDB_VERSION_CSPROJ
           if [[ "$ROCKSDB_VERSION_VCPKG" != "$ROCKSDB_VERSION_CSPROJ" ]]; then
