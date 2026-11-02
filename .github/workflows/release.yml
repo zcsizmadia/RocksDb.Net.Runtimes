@@ -17,6 +17,7 @@ jobs:
       actions: read     # To download from build.yml
       contents: write   # To upload assets to the Release
       packages: write   # To push to GitHub Packages
+      id-token: write   # To get a short-lived NuGet.org API key via trusted publishing
 
     steps:
       - uses: actions/checkout@v7
@@ -72,13 +73,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.event.release.tag_name }} "$TARGET_NUPKG"
+          # --clobber lets a re-run replace the asset uploaded by a previous attempt
+          gh release upload ${{ github.event.release.tag_name }} "$TARGET_NUPKG" --clobber
+
+      # Exchange the GitHub OIDC token for a NuGet.org API key that is valid for 1 hour
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: zcsizmadia   # nuget.org profile name, not email
 
       - name: Publish to NuGet.org
         shell: bash
         run: |
           dotnet nuget push "$TARGET_NUPKG" \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
