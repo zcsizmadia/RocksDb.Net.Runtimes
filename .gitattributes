@@ -2,3 +2,7 @@
 # Marking them -text keeps them byte-identical to what those projects publish,
 # rather than letting a checkout rewrite the line endings of a legal document.
 licenses/** -text
+
+# The overlay port's patches are applied to upstream sources with LF line endings,
+# so a Windows checkout must not turn them into CRLF.
+vcpkg-overlays/ports/** -text
