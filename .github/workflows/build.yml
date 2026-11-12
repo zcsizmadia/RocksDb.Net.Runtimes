@@ -71,7 +71,7 @@ jobs:
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: "479d7e8c4880b8fd84261e41a182e9c8ad2c5db1"
+          vcpkgGitCommitId: "933185efe568b1587f35bf69f6259491777aa734"
 
       # Install .NET SDKs to extract the RocksDB version from the csproj file,
       # which is used to ensure the vcpkg version matches and to determine the expected library file names
@@ -88,8 +88,8 @@ jobs:
           ROCKSDB_VERSION_CSPROJ="$(dotnet msbuild RocksDb.Net.Runtimes/ -getProperty:RocksDbVersion -nologo -v:q | tr -d '\r' | xargs)"
           echo "RocksDb version from csproj: $ROCKSDB_VERSION_CSPROJ"
 
-          # Extract version from the overlay port's vcpkg.json, which takes precedence over vcpkg's own rocksdb port
-          ROCKSDB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg-overlays/ports/rocksdb/vcpkg.json)
+          # Extract version from vcpkg.json
+          ROCKSDB_VERSION_VCPKG=$(sed -n 's/.*"version": "\(.*\)".*/\1/p' vcpkg/ports/rocksdb/vcpkg.json)
           echo "RocksDb version from vcpkg.json: $ROCKSDB_VERSION_VCPKG"
 
           # Upstream may tag without a patch number (e.g. v11.12), so pad to MAJOR.MINOR.PATCH
@@ -114,7 +114,7 @@ jobs:
         env:
           VCPKG_FORCE_SYSTEM_BINARIES: ${{ contains(matrix.runtimeId, 'musl') && 1 || 0}}
         run: |
-          vcpkg install rocksdb[snappy,zlib,lz4,zstd] --triplet=${{ matrix.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets --overlay-ports=vcpkg-overlays/ports
+          vcpkg install rocksdb[snappy,zlib,lz4,zstd] --triplet=${{ matrix.runtimeId }} --overlay-triplets=vcpkg-overlays/triplets
 
       - name: Upload vcpkg CMake build logs on failure
         if: failure()

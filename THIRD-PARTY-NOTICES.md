@@ -15,6 +15,7 @@ Every library listed here is built from unmodified upstream sources through [vcp
 | zlib | zlib licence | [`licenses/LICENSE.zlib.txt`](licenses/LICENSE.zlib.txt) |
 | LZ4 | BSD 2-Clause | [`licenses/LICENSE.lz4.txt`](licenses/LICENSE.lz4.txt) |
 | Zstandard | BSD 3-Clause | [`licenses/LICENSE.zstd.txt`](licenses/LICENSE.zstd.txt) |
+| xxHash (compiled into RocksDB) | BSD 2-Clause | [`licenses/LICENSE.xxhash.txt`](licenses/LICENSE.xxhash.txt) |
 
 RocksDB is compiled with Snappy, zlib, LZ4 and Zstandard support, and the shared libraries for those compression codecs are shipped in the package next to RocksDB itself. That is why their notices appear here: the BSD licences require the copyright notice, conditions and disclaimer to be reproduced when the software is redistributed in binary form.
 
@@ -61,6 +62,15 @@ Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.
 - Source: <https://github.com/facebook/zstd>
 
 Licensed under the BSD 3-Clause licence. Full text in `licenses/LICENSE.zstd.txt`. Zstandard is also offered upstream under the GPLv2; the BSD terms are taken here.
+
+## xxHash
+
+Copyright (C) 2012-2021 Yann Collet.
+
+- Project: <https://www.xxhash.com/>
+- Source: <https://github.com/Cyan4973/xxHash>
+
+RocksDB bundles xxHash in its source tree (`util/xxhash.h` and `util/xxph3.h`, a fork of a preview of XXH3) and compiles it into the RocksDB library, so it is not shipped as a separate file. Those headers carry the BSD 2-Clause licence. `licenses/LICENSE.xxhash.txt` reproduces their licence notices verbatim, as found in the RocksDB source.
 
 ## Further dependencies
 
